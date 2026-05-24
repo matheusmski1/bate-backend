@@ -5,6 +5,7 @@ import {
   drawFromDeck, discardDrawnCard, swapAndDiscard,
   snapCard,
   resolveEffect, skipEffect, callCabo, finishRound,
+  startTurnTimer,
 } from '../game/engine'
 import { broadcastRoom } from './broadcast'
 import { log, snapshot } from '../logger'
@@ -58,7 +59,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
         log.info('game:initial-peek-done', 'progress', { room: room.roomId, player: payload.playerId, confirmed: count, total: room.players.length })
         if (count >= room.players.length) {
           await lobby.clearPeekConfirmations(room.roomId)
-          const next = { ...room, phase: 'playing' as const }
+          const next = startTurnTimer({ ...room, phase: 'playing' as const })
           await lobby.setRoom(next)
           broadcastRoom(io, next)
         }

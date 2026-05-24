@@ -9,6 +9,7 @@ export type CreateRoomInput = {
   hostId: string
   hostName: string
   maxPlayers: 2 | 3 | 4
+  turnTimeLimitSec?: number | null
 }
 
 export type JoinInput = { playerId: string; playerName: string }

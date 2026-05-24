@@ -12,6 +12,18 @@ function currentPlayerId(state: GameState): string {
   return state.players[state.turn]!.id
 }
 
+function nextDeadline(state: GameState): number | null {
+  if (state.turnTimeLimitSec === null || state.turnTimeLimitSec <= 0) return null
+  return Date.now() + state.turnTimeLimitSec * 1000
+}
+
+function withFreshTurnTimer(state: GameState): GameState {
+  if (state.phase !== 'playing' && state.phase !== 'cabo-called') {
+    return { ...state, turnDeadlineAt: null, paused: false, pausedRemainingMs: null }
+  }
+  return { ...state, turnDeadlineAt: nextDeadline(state), paused: false, pausedRemainingMs: null }
+}
+
 function advanceTurn(state: GameState): GameState {
   const nextTurn = (state.turn + 1) % state.players.length
   let phase = state.phase
@@ -24,7 +36,7 @@ function advanceTurn(state: GameState): GameState {
       phase = isMatchEnd(players) ? 'match-end' : 'round-end'
     }
   }
-  return { ...state, players, turn: nextTurn, phase, turnsRemaining }
+  return withFreshTurnTimer({ ...state, players, turn: nextTurn, phase, turnsRemaining })
 }
 
 export function drawFromDeck(state: GameState, playerId: string): { state: GameState; card: Card | null } {
@@ -288,7 +300,24 @@ function advanceTurnExported(state: GameState): GameState {
       phase = isMatchEnd(players) ? 'match-end' : 'round-end'
     }
   }
-  return { ...state, players, turn: nextTurn, phase, turnsRemaining }
+  return withFreshTurnTimer({ ...state, players, turn: nextTurn, phase, turnsRemaining })
+}
+
+export function pauseTimer(state: GameState): GameState {
+  if (state.paused) return state
+  if (state.turnDeadlineAt === null) return state
+  const remaining = Math.max(0, state.turnDeadlineAt - Date.now())
+  return { ...state, paused: true, pausedRemainingMs: remaining, turnDeadlineAt: null }
+}
+
+export function resumeTimer(state: GameState): GameState {
+  if (!state.paused) return state
+  const ms = state.pausedRemainingMs ?? (state.turnTimeLimitSec ?? 60) * 1000
+  return { ...state, paused: false, pausedRemainingMs: null, turnDeadlineAt: Date.now() + ms }
+}
+
+export function startTurnTimer(state: GameState): GameState {
+  return withFreshTurnTimer(state)
 }
 
 export function callCabo(state: GameState, playerId: string): GameState {
@@ -303,7 +332,21 @@ export function callCabo(state: GameState, playerId: string): GameState {
     log: [...state.log, { timestamp: Date.now(), type: 'cabo', actorId: playerId }],
   }
   const nextTurn = (withCabo.turn + 1) % withCabo.players.length
-  return { ...withCabo, turn: nextTurn }
+  return withFreshTurnTimer({ ...withCabo, turn: nextTurn })
+}
+
+export function autoPlayExpiredTurn(state: GameState): { state: GameState; reason: 'auto-discard' | 'auto-draw-discard' | 'noop' } {
+  if (state.phase !== 'playing' && state.phase !== 'cabo-called') return { state, reason: 'noop' }
+  const playerId = state.players[state.turn]?.id
+  if (!playerId) return { state, reason: 'noop' }
+  if (state.deck.length === 0) return { state: endRoundEmptyDeck(state), reason: 'noop' }
+  const deckAfter = [...state.deck]
+  const card = deckAfter.pop()!
+  const afterDraw: GameState = { ...state, deck: deckAfter, log: logEvent(state, 'draw', playerId, { auto: true }) }
+  const discard = [...afterDraw.discard, card]
+  const log2 = logEvent(afterDraw, 'discard', playerId, { cardId: card.id, rank: card.rank, auto: true })
+  const next = advanceTurn({ ...afterDraw, discard, log: log2, snapWindow: null })
+  return { state: next, reason: 'auto-draw-discard' }
 }
 
 export function finishRound(state: GameState): GameState {

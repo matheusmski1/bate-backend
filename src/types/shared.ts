@@ -70,6 +70,10 @@ export type GameState = {
   snapWindow: SnapWindow | null
   log: GameAction[]
   createdAt: number
+  turnTimeLimitSec: number | null
+  turnDeadlineAt: number | null
+  paused: boolean
+  pausedRemainingMs: number | null
 }
 
 export type RedactedCard = { id: string; rank: Rank; suit: Suit | null } | { id: string; hidden: true }

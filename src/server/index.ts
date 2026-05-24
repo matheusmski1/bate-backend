@@ -8,7 +8,7 @@ import { broadcastRoom } from './handlers/broadcast'
 import { lobby } from './lobby'
 import { consume as consumeRate, release as releaseRate } from './rate-limit'
 import { log } from './logger'
-import { removePlayerMidGame } from './game/engine'
+import { removePlayerMidGame, discardDrawnCard, skipEffect, autoPlayExpiredTurn } from './game/engine'
 
 const port = Number(process.env.PORT ?? 3001)
 const corsOrigin = process.env.CORS_ORIGIN ?? '*'
@@ -141,6 +141,44 @@ setInterval(async () => {
     }
   }
 }, CLEANUP_INTERVAL_MS)
+
+const TURN_TIMER_INTERVAL_MS = 2_000
+
+setInterval(async () => {
+  const now = Date.now()
+  const summaries = await lobby.listRooms()
+  for (const summary of summaries) {
+    const room = await lobby.getRoom(summary.roomId)
+    if (!room) continue
+    if (room.paused) continue
+    if (room.turnDeadlineAt === null) continue
+    if (room.turnDeadlineAt > now) continue
+    const activePhases = ['playing', 'cabo-called', 'effect-pending']
+    if (!activePhases.includes(room.phase)) continue
+    await lobby.withRoomLock(summary.roomId, async () => {
+      const r2 = await lobby.getRoom(summary.roomId)
+      if (!r2 || r2.paused || r2.turnDeadlineAt === null || r2.turnDeadlineAt > Date.now()) return
+      const playerId = r2.players[r2.turn]?.id
+      if (!playerId) return
+      log.warn('turn-timer', 'expired — auto-action', { room: summary.roomId, player: playerId, phase: r2.phase })
+      let next = r2
+      if (r2.phase === 'effect-pending' && r2.pendingEffect?.playerId === playerId) {
+        next = skipEffect(r2, playerId)
+      } else {
+        const cached = await lobby.getDrawnCard(playerId)
+        if (cached) {
+          next = discardDrawnCard(r2, playerId, cached.card, false)
+          await lobby.clearDrawnCard(playerId)
+        } else {
+          const result = autoPlayExpiredTurn(r2)
+          next = result.state
+        }
+      }
+      await lobby.setRoom(next)
+      broadcastRoom(io, next)
+    })
+  }
+}, TURN_TIMER_INTERVAL_MS)
 
 const server = httpServer.listen(port, '0.0.0.0', () => {
   console.log(`> Bate backend ready on port ${port} (cors=${corsOrigin})`)

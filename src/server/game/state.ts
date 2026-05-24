@@ -7,6 +7,7 @@ type CreateRoomInput = {
   hostId: string
   hostName: string
   maxPlayers: 2 | 3 | 4
+  turnTimeLimitSec?: number | null
 }
 
 export function createEmptyRoom(input: CreateRoomInput): GameState {
@@ -36,6 +37,10 @@ export function createEmptyRoom(input: CreateRoomInput): GameState {
     snapWindow: null,
     log: [],
     createdAt: Date.now(),
+    turnTimeLimitSec: input.turnTimeLimitSec ?? 60,
+    turnDeadlineAt: null,
+    paused: false,
+    pausedRemainingMs: null,
   }
 }
 
@@ -58,5 +63,8 @@ export function startRound(state: GameState): GameState {
     turnsRemaining: null,
     pendingEffect: null,
     snapWindow: null,
+    turnDeadlineAt: null,
+    paused: false,
+    pausedRemainingMs: null,
   }
 }

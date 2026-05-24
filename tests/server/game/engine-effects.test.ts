@@ -17,7 +17,7 @@ function stateWithEffect(type: 'peek-own' | 'peek-other' | 'swap'): GameState {
     caboCallerId: null, turnsRemaining: null,
     pendingEffect: { type, playerId: 'p1' },
     snapWindow: null,
-    log: [], createdAt: Date.now(),
+    log: [], createdAt: Date.now(), turnTimeLimitSec: 60, turnDeadlineAt: null, paused: false, pausedRemainingMs: null,
   }
 }
 
