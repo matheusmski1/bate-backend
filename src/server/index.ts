@@ -8,6 +8,7 @@ import { broadcastRoom } from './handlers/broadcast'
 import { lobby } from './lobby'
 import { consume as consumeRate, release as releaseRate } from './rate-limit'
 import { log } from './logger'
+import { removePlayerMidGame } from './game/engine'
 
 const port = Number(process.env.PORT ?? 3001)
 const corsOrigin = process.env.CORS_ORIGIN ?? '*'
@@ -90,13 +91,21 @@ io.on('connection', socket => {
         if (!p || p.connected) return
         p.socketId = null
         log.warn('reconnect-grace', 'expired', { player: entry.playerId, room: entry.roomId, phase: r.phase })
-        if (r.phase === 'waiting') {
+        if (r.phase === 'waiting' || r.phase === 'round-end' || r.phase === 'match-end') {
           const next = await lobby.removePlayer(entry.roomId, entry.playerId)
           if (next) broadcastRoom(io, next)
           else log.warn('reconnect-grace', 'removePlayer killed room', { room: entry.roomId })
         } else {
-          await lobby.setRoom(r)
-          broadcastRoom(io, r)
+          const adjusted = removePlayerMidGame(r, entry.playerId)
+          await lobby.setRoom(adjusted)
+          if (adjusted.players.length === 0) await lobby.removeRoom(entry.roomId)
+          else if (adjusted.players.length !== r.players.length) {
+            const stillThere = adjusted.players.length
+            log.info('reconnect-grace', 'player removed mid-game', { player: entry.playerId, remaining: stillThere, phase: adjusted.phase })
+            broadcastRoom(io, adjusted)
+          } else {
+            broadcastRoom(io, r)
+          }
         }
       })
       pendingDisconnects.delete(entry.playerId)

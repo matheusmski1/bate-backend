@@ -46,12 +46,13 @@ export function startRound(state: GameState): GameState {
     const initiallyRevealed = hand.slice(-2).map(c => c.id)
     return { ...p, hand, score: p.score, revealedToSelf: initiallyRevealed }
   })
+  const lowestIdx = players.reduce((bestIdx, p, i) => (p.score < players[bestIdx]!.score ? i : bestIdx), 0)
   return {
     ...state,
     players,
     deck,
     discard: [],
-    turn: 0,
+    turn: lowestIdx,
     phase: 'initial-peek',
     caboCallerId: null,
     turnsRemaining: null,

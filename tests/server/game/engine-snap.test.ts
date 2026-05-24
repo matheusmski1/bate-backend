@@ -79,9 +79,9 @@ describe('snapCard - falha', () => {
     expect(next.deck.length).toBe(deckBefore - 1)
   })
 
-  it('snap na própria vez lança SNAP_NOT_ALLOWED_ON_YOUR_TURN', () => {
+  it('snap na própria vez é permitido pelo engine (cliente controla UX)', () => {
     const state = baseState()
-    expect(() => snapCard(state, 'p1', 0)).toThrow('SNAP_NOT_ALLOWED_ON_YOUR_TURN')
+    expect(() => snapCard(state, 'p1', 0)).not.toThrow()
   })
 })
 

@@ -45,6 +45,53 @@ export function drawFromDeck(state: GameState, playerId: string): { state: GameS
   }
 }
 
+export function removePlayerMidGame(state: GameState, playerId: string): GameState {
+  const idx = state.players.findIndex(p => p.id === playerId)
+  if (idx === -1) return state
+  const players = state.players.filter(p => p.id !== playerId)
+  if (players.length < 2) {
+    if (players.length === 0) return state
+    const scored = players.map(p => ({ ...p, score: p.score + scoreHand(p.hand) }))
+    return {
+      ...state,
+      players: scored,
+      phase: isMatchEnd(scored) ? 'match-end' : 'round-end',
+      pendingEffect: null,
+      snapWindow: null,
+      log: [...state.log, { timestamp: Date.now(), type: 'leave', actorId: playerId, payload: { reason: 'last-player-left' } }],
+    }
+  }
+  let nextTurn = state.turn
+  if (state.turn === idx) {
+    nextTurn = state.turn % players.length
+  } else if (state.turn > idx) {
+    nextTurn = state.turn - 1
+  }
+  let phase = state.phase
+  let caboCallerId = state.caboCallerId
+  let turnsRemaining = state.turnsRemaining
+  let pendingEffect = state.pendingEffect
+  if (caboCallerId === playerId) {
+    caboCallerId = null
+    turnsRemaining = null
+    if (phase === 'cabo-called') phase = 'playing'
+  }
+  if (pendingEffect && pendingEffect.playerId === playerId) {
+    pendingEffect = null
+    if (phase === 'effect-pending') phase = caboCallerId !== null ? 'cabo-called' : 'playing'
+  }
+  return {
+    ...state,
+    players,
+    turn: nextTurn,
+    phase,
+    caboCallerId,
+    turnsRemaining,
+    pendingEffect,
+    log: [...state.log, { timestamp: Date.now(), type: 'leave', actorId: playerId }],
+  }
+}
+
 export function endRoundEmptyDeck(state: GameState): GameState {
   const players = state.players.map(p => ({ ...p, score: p.score + scoreHand(p.hand) }))
   const phase: GameState['phase'] = isMatchEnd(players) ? 'match-end' : 'round-end'
@@ -109,9 +156,6 @@ export function snapCard(state: GameState, playerId: string, handIndex: number):
   }
   if (state.phase !== 'playing' && state.phase !== 'cabo-called') {
     throw new Error('INVALID_PHASE')
-  }
-  if (currentPlayerId(state) === playerId) {
-    throw new Error('SNAP_NOT_ALLOWED_ON_YOUR_TURN')
   }
   const playerIdx = state.players.findIndex(p => p.id === playerId)
   if (playerIdx === -1) throw new Error('PLAYER_NOT_FOUND')
