@@ -15,13 +15,15 @@ function advanceTurn(state: GameState): GameState {
   const nextTurn = (state.turn + 1) % state.players.length
   let phase = state.phase
   let turnsRemaining = state.turnsRemaining
+  let players = state.players
   if (state.phase === 'cabo-called' && state.turnsRemaining !== null) {
     turnsRemaining = state.turnsRemaining - 1
     if (turnsRemaining <= 0) {
-      phase = 'round-end'
+      players = state.players.map(p => ({ ...p, score: p.score + scoreHand(p.hand) }))
+      phase = isMatchEnd(players) ? 'match-end' : 'round-end'
     }
   }
-  return { ...state, turn: nextTurn, phase, turnsRemaining }
+  return { ...state, players, turn: nextTurn, phase, turnsRemaining }
 }
 
 export function drawFromDeck(state: GameState, playerId: string): { state: GameState; card: Card } {
@@ -218,15 +220,32 @@ export function resolveEffect(state: GameState, playerId: string, input: EffectI
   }
 }
 
+export function skipEffect(state: GameState, playerId: string): GameState {
+  if (!state.pendingEffect) throw new Error('NO_PENDING_EFFECT')
+  if (state.pendingEffect.playerId !== playerId) throw new Error('NOT_YOUR_EFFECT')
+  const restoredPhase: GameState['phase'] = state.caboCallerId !== null ? 'cabo-called' : 'playing'
+  const cleared: GameState = {
+    ...state,
+    pendingEffect: null,
+    phase: restoredPhase,
+    log: [...state.log, { timestamp: Date.now(), type: 'peek', actorId: playerId, payload: { skipped: true } }],
+  }
+  return advanceTurnExported(cleared)
+}
+
 function advanceTurnExported(state: GameState): GameState {
   const nextTurn = (state.turn + 1) % state.players.length
   let phase = state.phase
   let turnsRemaining = state.turnsRemaining
+  let players = state.players
   if (state.phase === 'cabo-called' && state.turnsRemaining !== null) {
     turnsRemaining = state.turnsRemaining - 1
-    if (turnsRemaining <= 0) phase = 'round-end'
+    if (turnsRemaining <= 0) {
+      players = state.players.map(p => ({ ...p, score: p.score + scoreHand(p.hand) }))
+      phase = isMatchEnd(players) ? 'match-end' : 'round-end'
+    }
   }
-  return { ...state, turn: nextTurn, phase, turnsRemaining }
+  return { ...state, players, turn: nextTurn, phase, turnsRemaining }
 }
 
 export function callCabo(state: GameState, playerId: string): GameState {
@@ -246,11 +265,10 @@ export function callCabo(state: GameState, playerId: string): GameState {
 
 export function finishRound(state: GameState): GameState {
   if (state.phase !== 'round-end') throw new Error('INVALID_PHASE')
-  const players = state.players.map(p => ({ ...p, score: p.score + scoreHand(p.hand) }))
-  const matchEnd = isMatchEnd(players)
+  const matchEnd = isMatchEnd(state.players)
   return {
     ...state,
-    players: players.map(p => ({ ...p, hand: [] })),
+    players: state.players.map(p => ({ ...p, hand: [] })),
     deck: [],
     discard: [],
     phase: matchEnd ? 'match-end' : 'waiting',

@@ -1,10 +1,11 @@
 import type { GameState, RedactedCard, RedactedPlayer, RedactedState } from '@/types/shared'
 
 export function redactStateForPlayer(state: GameState, viewerId: string): RedactedState {
+  const revealAll = state.phase === 'round-end' || state.phase === 'match-end'
   const players: RedactedPlayer[] = state.players.map(p => {
     const isViewer = p.id === viewerId
     const hand: RedactedCard[] = p.hand.map(c => {
-      if (isViewer && p.revealedToSelf.includes(c.id)) {
+      if (revealAll || (isViewer && p.revealedToSelf.includes(c.id))) {
         return { id: c.id, rank: c.rank, suit: c.suit }
       }
       return { id: c.id, hidden: true }

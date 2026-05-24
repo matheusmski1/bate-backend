@@ -4,7 +4,7 @@ import { startRound } from '../game/state'
 import {
   drawFromDeck, discardDrawnCard, swapAndDiscard,
   snapCard, useHandCardEffect,
-  resolveEffect, callCabo, finishRound,
+  resolveEffect, skipEffect, callCabo, finishRound,
 } from '../game/engine'
 import { broadcastRoom } from './broadcast'
 
@@ -115,6 +115,21 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
         const room = await lobby.getRoom(payload.roomId)
         if (!room) throw new Error('ROOM_NOT_FOUND')
         const next = useHandCardEffect(room, payload.playerId, payload.handIndex)
+        await lobby.setRoom(next)
+        broadcastRoom(io, next)
+      })
+      ack({ ok: true })
+    } catch (err) {
+      ack({ error: err instanceof Error ? err.message : 'UNKNOWN' })
+    }
+  })
+
+  socket.on('game:skip-effect', async (payload: { roomId: string; playerId: string }, ack: Ack) => {
+    try {
+      await lobby.withRoomLock(payload.roomId, async () => {
+        const room = await lobby.getRoom(payload.roomId)
+        if (!room) throw new Error('ROOM_NOT_FOUND')
+        const next = skipEffect(room, payload.playerId)
         await lobby.setRoom(next)
         broadcastRoom(io, next)
       })

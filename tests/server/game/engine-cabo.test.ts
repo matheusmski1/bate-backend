@@ -57,12 +57,13 @@ describe('callCabo', () => {
 })
 
 describe('finishRound', () => {
-  it('soma score da mão de cada player no score acumulado', () => {
+  it('limpa hands, deck, discard e volta pra waiting se ninguém atingiu 100', () => {
     const state = { ...threePlayerState(), phase: 'round-end' as const }
     const next = finishRound(state)
-    expect(next.players[0]?.score).toBe(-3 + 1)
-    expect(next.players[1]?.score).toBe(5 + 10)
-    expect(next.players[2]?.score).toBe(7 + 8)
+    expect(next.phase).toBe('waiting')
+    expect(next.players.every(p => p.hand.length === 0)).toBe(true)
+    expect(next.deck).toEqual([])
+    expect(next.discard).toEqual([])
   })
 
   it('lança se phase não é round-end', () => {
@@ -70,17 +71,11 @@ describe('finishRound', () => {
     expect(() => finishRound(state)).toThrow('INVALID_PHASE')
   })
 
-  it('vai pra match-end se alguém atingiu 100', () => {
+  it('vai pra match-end se algum player já tem >= 100 (scores já somados via advanceTurn)', () => {
     const state: GameState = { ...threePlayerState(), phase: 'round-end' }
-    state.players[1]!.score = 90
+    state.players[1]!.score = 100
     const next = finishRound(state)
     expect(next.phase).toBe('match-end')
-  })
-
-  it('volta pra waiting se ninguém atingiu 100', () => {
-    const state = { ...threePlayerState(), phase: 'round-end' as const }
-    const next = finishRound(state)
-    expect(next.phase).toBe('waiting')
   })
 
   it('registra round-end no log', () => {
