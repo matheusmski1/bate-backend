@@ -103,31 +103,6 @@ export function swapAndDiscard(state: GameState, playerId: string, drawn: Card, 
   return advanceTurn(afterSwap)
 }
 
-export function useHandCardEffect(state: GameState, playerId: string, handIndex: number): GameState {
-  if (state.phase !== 'playing' && state.phase !== 'cabo-called') throw new Error('INVALID_PHASE')
-  if (currentPlayerId(state) !== playerId) throw new Error('NOT_YOUR_TURN')
-  const playerIdx = state.players.findIndex(p => p.id === playerId)
-  if (playerIdx === -1) throw new Error('PLAYER_NOT_FOUND')
-  const player = state.players[playerIdx]!
-  if (handIndex < 0 || handIndex >= player.hand.length) throw new Error('INVALID_HAND_INDEX')
-  const card = player.hand[handIndex]!
-  const pendingEffect = effectFromRank(card, playerId)
-  if (!pendingEffect) throw new Error('NOT_SPECIAL_CARD')
-  const newHand = player.hand.filter((_, i) => i !== handIndex)
-  const players = [...state.players]
-  players[playerIdx] = { ...player, hand: newHand }
-  const discard = [...state.discard, card]
-  return {
-    ...state,
-    players,
-    discard,
-    phase: 'effect-pending',
-    pendingEffect,
-    snapWindow: null,
-    log: [...state.log, { timestamp: Date.now(), type: 'discard', actorId: playerId, payload: { cardId: card.id, rank: card.rank, usedFromHand: true } }],
-  }
-}
-
 export function snapCard(state: GameState, playerId: string, handIndex: number): GameState {
   if (state.discard.length === 0) {
     throw new Error('NO_DISCARD')
@@ -174,12 +149,7 @@ export function snapCard(state: GameState, playerId: string, handIndex: number):
     ...state,
     players,
     deck,
-    log: [...state.log, {
-      timestamp: Date.now(),
-      type: 'snap-fail',
-      actorId: playerId,
-      payload: { attemptedRank: snappedCard.rank, penaltyRank: penalty.rank, penaltyCardId: penalty.id },
-    }],
+    log: [...state.log, { timestamp: Date.now(), type: 'snap-fail', actorId: playerId, payload: { attemptedRank: snappedCard.rank } }],
   }
 }
 

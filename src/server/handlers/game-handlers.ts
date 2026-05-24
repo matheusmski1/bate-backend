@@ -3,7 +3,7 @@ import { lobby } from '../lobby'
 import { startRound } from '../game/state'
 import {
   drawFromDeck, discardDrawnCard, swapAndDiscard,
-  snapCard, useHandCardEffect,
+  snapCard,
   resolveEffect, skipEffect, callCabo, finishRound,
 } from '../game/engine'
 import { broadcastRoom } from './broadcast'
@@ -122,19 +122,6 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
         broadcastRoom(io, next)
         const lastEvent = next.log[next.log.length - 1]
         log.info('game:snap', 'state', { room: payload.roomId, outcome: lastEvent?.type, after: snapshot(next) })
-      })
-    })
-    ack(r.ok ? { ok: true } : { error: r.error })
-  })
-
-  socket.on('game:use-hand-effect', async (payload: { roomId: string; playerId: string; handIndex: number }, ack: Ack) => {
-    const r = await trace('game:use-hand-effect', socket, { room: payload.roomId, player: payload.playerId, handIndex: payload.handIndex }, async () => {
-      return await lobby.withRoomLock(payload.roomId, async () => {
-        const room = await lobby.getRoom(payload.roomId)
-        if (!room) throw new Error('ROOM_NOT_FOUND')
-        const next = useHandCardEffect(room, payload.playerId, payload.handIndex)
-        await lobby.setRoom(next)
-        broadcastRoom(io, next)
       })
     })
     ack(r.ok ? { ok: true } : { error: r.error })
