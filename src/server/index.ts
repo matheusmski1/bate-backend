@@ -11,8 +11,8 @@ import { consume as consumeRate, release as releaseRate } from './rate-limit'
 const port = Number(process.env.PORT ?? 3001)
 const corsOrigin = process.env.CORS_ORIGIN ?? '*'
 const RECONNECT_GRACE_MS = 30_000
-const IDLE_ROOM_MS = 60 * 60 * 1000
-const CLEANUP_INTERVAL_MS = 60_000
+const IDLE_ROOM_MS = 5 * 60 * 1000
+const CLEANUP_INTERVAL_MS = 30_000
 
 const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
   if (req.url === '/health') {
@@ -111,7 +111,17 @@ setInterval(async () => {
     if (!room) continue
     const lastActivity = Math.max(room.createdAt, ...room.log.map(l => l.timestamp))
     if (now - lastActivity > IDLE_ROOM_MS) {
-      console.log('[cleanup] removing idle room', summary.roomId, 'idle for', Math.round((now - lastActivity) / 1000), 's')
+      const idleSec = Math.round((now - lastActivity) / 1000)
+      console.log('[cleanup] expiring idle room', summary.roomId, 'idle for', idleSec, 's')
+      for (const player of room.players) {
+        if (player.socketId && io.sockets.sockets.has(player.socketId)) {
+          io.to(player.socketId).emit('room:expired', {
+            roomId: summary.roomId,
+            reason: 'idle',
+            message: `Sala fechada por inatividade (${Math.floor(IDLE_ROOM_MS / 60000)}min sem ações).`,
+          })
+        }
+      }
       await lobby.removeRoom(summary.roomId)
       io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
     }
