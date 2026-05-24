@@ -1,0 +1,27 @@
+{
+  "name": "bate-backend",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server/index.ts",
+    "start": "NODE_ENV=production tsx src/server/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@socket.io/redis-adapter": "^8.3.0",
+    "redis": "^5.12.1",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.13",
+    "tsx": "^4.20.7",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.7"
+  }
+}
