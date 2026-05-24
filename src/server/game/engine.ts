@@ -175,10 +175,11 @@ export function resolveEffect(state: GameState, playerId: string, input: EffectI
     throw new Error('INVALID_HAND_INDEX')
   }
   const targetCard = target.hand[input.targetCardIndex]!
+  const restoredPhase: GameState['phase'] = state.caboCallerId !== null ? 'cabo-called' : 'playing'
 
   if (state.pendingEffect.type === 'peek-own') {
     if (input.targetPlayerId !== playerId) throw new Error('INVALID_TARGET')
-    const cleared: GameState = { ...state, pendingEffect: null, phase: 'playing' }
+    const cleared: GameState = { ...state, pendingEffect: null, phase: restoredPhase }
     const next = advanceTurnExported(cleared)
     return {
       state: { ...next, log: [...next.log, { timestamp: Date.now(), type: 'peek', actorId: playerId, payload: { targetPlayerId: playerId, cardIndex: input.targetCardIndex } }] },
@@ -188,7 +189,7 @@ export function resolveEffect(state: GameState, playerId: string, input: EffectI
 
   if (state.pendingEffect.type === 'peek-other') {
     if (input.targetPlayerId === playerId) throw new Error('INVALID_TARGET')
-    const cleared: GameState = { ...state, pendingEffect: null, phase: 'playing' }
+    const cleared: GameState = { ...state, pendingEffect: null, phase: restoredPhase }
     const next = advanceTurnExported(cleared)
     return {
       state: { ...next, log: [...next.log, { timestamp: Date.now(), type: 'peek', actorId: playerId, payload: { targetPlayerId: input.targetPlayerId, cardIndex: input.targetCardIndex } }] },
@@ -212,7 +213,7 @@ export function resolveEffect(state: GameState, playerId: string, input: EffectI
   players[myIdx] = { ...me, hand: newMyHand }
   players[targetIdx] = { ...target, hand: newTargetHand }
 
-  const cleared: GameState = { ...state, players, pendingEffect: null, phase: 'playing' }
+  const cleared: GameState = { ...state, players, pendingEffect: null, phase: restoredPhase }
   const next = advanceTurnExported(cleared)
   return {
     state: { ...next, log: [...next.log, { timestamp: Date.now(), type: 'swap', actorId: playerId, payload: { targetPlayerId: input.targetPlayerId, myCardIndex: input.myCardIndex, targetCardIndex: input.targetCardIndex } }] },
