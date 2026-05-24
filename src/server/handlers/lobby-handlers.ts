@@ -3,6 +3,11 @@ import { lobby } from '../lobby'
 import { broadcastRoom } from './broadcast'
 import { pauseTimer, resumeTimer } from '../game/engine'
 
+const VALID_EMOTES = ['clap', 'shock', 'cry', 'fire', 'clock', 'brain'] as const
+type Emote = typeof VALID_EMOTES[number]
+const EMOTE_COOLDOWN_MS = 2500
+const lastEmoteAt = new Map<string, number>()
+
 export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
   socket.on('lobby:subscribe', async () => {
     socket.join('lobby')
@@ -25,6 +30,33 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
         io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
       } catch (err) {
         ack({ error: err instanceof Error ? err.message : 'UNKNOWN' })
+      }
+    },
+  )
+
+  socket.on(
+    'room:emote',
+    async (
+      payload: { roomId: string; playerId: string; emote: Emote },
+      ack?: (res: { ok: true } | { error: string }) => void,
+    ) => {
+      try {
+        if (!VALID_EMOTES.includes(payload.emote)) throw new Error('INVALID_EMOTE')
+        const now = Date.now()
+        const last = lastEmoteAt.get(payload.playerId) ?? 0
+        if (now - last < EMOTE_COOLDOWN_MS) throw new Error('EMOTE_COOLDOWN')
+        const room = await lobby.getRoom(payload.roomId)
+        if (!room) throw new Error('ROOM_NOT_FOUND')
+        if (!room.players.some(p => p.id === payload.playerId)) throw new Error('PLAYER_NOT_IN_ROOM')
+        lastEmoteAt.set(payload.playerId, now)
+        for (const player of room.players) {
+          if (player.socketId && io.sockets.sockets.has(player.socketId)) {
+            io.to(player.socketId).emit('room:emote', { playerId: payload.playerId, emote: payload.emote, timestamp: now })
+          }
+        }
+        ack?.({ ok: true })
+      } catch (err) {
+        ack?.({ error: err instanceof Error ? err.message : 'UNKNOWN' })
       }
     },
   )
