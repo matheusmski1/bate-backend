@@ -7,6 +7,7 @@ import { registerGameHandlers } from './handlers/game-handlers'
 import { broadcastRoom } from './handlers/broadcast'
 import { lobby } from './lobby'
 import { consume as consumeRate, release as releaseRate } from './rate-limit'
+import { log } from './logger'
 
 const port = Number(process.env.PORT ?? 3001)
 const corsOrigin = process.env.CORS_ORIGIN ?? '*'
@@ -51,10 +52,10 @@ if (process.env.REDIS_URL) {
 const pendingDisconnects = new Map<string, NodeJS.Timeout>()
 
 io.on('connection', socket => {
-  console.log('[socket] connected', socket.id)
+  log.info('socket', 'connected', { socket: socket.id })
   socket.use((_event, next) => {
     if (!consumeRate(socket.id)) {
-      console.log('[rate-limit] dropping event from', socket.id)
+      log.warn('rate-limit', 'dropping event', { socket: socket.id })
       next(new Error('RATE_LIMITED'))
       return
     }
@@ -65,8 +66,8 @@ io.on('connection', socket => {
 
   socket.on('disconnect', async reason => {
     releaseRate(socket.id)
-    console.log('[socket] disconnected', socket.id, reason)
     const entry = await lobby.releaseSocket(socket.id)
+    log.info('socket', 'disconnected', { socket: socket.id, reason, binding: entry ?? null })
     if (!entry) return
     await lobby.withRoomLock(entry.roomId, async () => {
       const room = await lobby.getRoom(entry.roomId)
@@ -88,10 +89,11 @@ io.on('connection', socket => {
         const p = r.players.find(x => x.id === entry.playerId)
         if (!p || p.connected) return
         p.socketId = null
-        console.log('[reconnect-grace] expired', entry.playerId, 'room', entry.roomId)
+        log.warn('reconnect-grace', 'expired', { player: entry.playerId, room: entry.roomId, phase: r.phase })
         if (r.phase === 'waiting') {
           const next = await lobby.removePlayer(entry.roomId, entry.playerId)
           if (next) broadcastRoom(io, next)
+          else log.warn('reconnect-grace', 'removePlayer killed room', { room: entry.roomId })
         } else {
           await lobby.setRoom(r)
           broadcastRoom(io, r)
@@ -106,13 +108,16 @@ io.on('connection', socket => {
 setInterval(async () => {
   const now = Date.now()
   const summaries = await lobby.listRooms()
+  if (summaries.length > 0) {
+    log.info('cleanup', 'tick', { rooms: summaries.length, idleLimitMs: IDLE_ROOM_MS })
+  }
   for (const summary of summaries) {
     const room = await lobby.getRoom(summary.roomId)
     if (!room) continue
     const lastActivity = Math.max(room.createdAt, ...room.log.map(l => l.timestamp))
-    if (now - lastActivity > IDLE_ROOM_MS) {
-      const idleSec = Math.round((now - lastActivity) / 1000)
-      console.log('[cleanup] expiring idle room', summary.roomId, 'idle for', idleSec, 's')
+    const idleMs = now - lastActivity
+    if (idleMs > IDLE_ROOM_MS) {
+      log.warn('cleanup', 'expiring idle room', { room: summary.roomId, idleSec: Math.round(idleMs / 1000), phase: room.phase, players: room.players.length })
       for (const player of room.players) {
         if (player.socketId && io.sockets.sockets.has(player.socketId)) {
           io.to(player.socketId).emit('room:expired', {

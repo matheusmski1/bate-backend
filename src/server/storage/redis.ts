@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { createClient, type RedisClientType } from 'redis'
 import type { GameState, Player, RoomSummary } from '@/types/shared'
 import { createEmptyRoom } from '../game/state'
+import { log } from '../logger'
 import type { Storage, CreateRoomInput, JoinInput, SocketBinding, DrawnCacheEntry } from './types'
 
 function generateRoomId(): string {
@@ -93,6 +94,8 @@ export class RedisStorage implements Storage {
   }
 
   async removeRoom(roomId: string): Promise<void> {
+    const stack = new Error().stack?.split('\n').slice(2, 6).map(s => s.trim()).join(' <- ')
+    log.warn('storage', 'removeRoom', { roomId, calledBy: stack })
     await this.withClient(async c => {
       await c.hDel(ROOMS_KEY, roomId)
       await c.del(PEEK_KEY(roomId))
@@ -102,7 +105,11 @@ export class RedisStorage implements Storage {
   async getRoom(roomId: string): Promise<GameState | undefined> {
     return this.withClient(async c => {
       const raw = await c.hGet(ROOMS_KEY, roomId)
-      if (!raw) return undefined
+      if (!raw) {
+        const keys = await c.hKeys(ROOMS_KEY)
+        log.warn('storage', 'getRoom miss', { roomId, existingRooms: keys })
+        return undefined
+      }
       return JSON.parse(raw) as GameState
     })
   }

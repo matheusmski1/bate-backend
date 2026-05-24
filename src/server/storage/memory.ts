@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import type { GameState, Player, RoomSummary } from '@/types/shared'
 import { createEmptyRoom } from '../game/state'
+import { log } from '../logger'
 import type { Storage, CreateRoomInput, JoinInput, SocketBinding, DrawnCacheEntry } from './types'
 
 function generateRoomId(): string {
@@ -75,11 +76,18 @@ export class MemoryStorage implements Storage {
   }
 
   async removeRoom(roomId: string): Promise<void> {
+    const existed = this.rooms.has(roomId)
     this.rooms.delete(roomId)
+    const stack = new Error().stack?.split('\n').slice(2, 6).map(s => s.trim()).join(' <- ')
+    log.warn('storage', 'removeRoom', { roomId, existed, calledBy: stack })
   }
 
   async getRoom(roomId: string): Promise<GameState | undefined> {
-    return this.rooms.get(roomId)
+    const r = this.rooms.get(roomId)
+    if (!r) {
+      log.warn('storage', 'getRoom miss', { roomId, existingRooms: Array.from(this.rooms.keys()) })
+    }
+    return r
   }
 
   async setRoom(state: GameState): Promise<void> {
