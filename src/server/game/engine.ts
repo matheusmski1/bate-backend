@@ -2,6 +2,7 @@ import type { Card, GameState, GameAction, GameActionType } from '@/types/shared
 import { scoreHand, isMatchEnd } from './scoring'
 
 const SNAP_WINDOW_MS = 3000
+const MAX_HAND_SIZE = 10
 
 function logEvent(state: GameState, type: GameActionType, actorId: string, payload?: Record<string, unknown>): GameAction[] {
   return [...state.log, { timestamp: Date.now(), type, actorId, payload }]
@@ -26,7 +27,7 @@ function advanceTurn(state: GameState): GameState {
   return { ...state, players, turn: nextTurn, phase, turnsRemaining }
 }
 
-export function drawFromDeck(state: GameState, playerId: string): { state: GameState; card: Card } {
+export function drawFromDeck(state: GameState, playerId: string): { state: GameState; card: Card | null } {
   if (state.phase !== 'playing' && state.phase !== 'cabo-called') {
     throw new Error('INVALID_PHASE')
   }
@@ -34,13 +35,26 @@ export function drawFromDeck(state: GameState, playerId: string): { state: GameS
     throw new Error('NOT_YOUR_TURN')
   }
   if (state.deck.length === 0) {
-    throw new Error('DECK_EMPTY')
+    return { state: endRoundEmptyDeck(state), card: null }
   }
   const deck = [...state.deck]
   const card = deck.pop()!
   return {
     state: { ...state, deck, log: logEvent(state, 'draw', playerId) },
     card,
+  }
+}
+
+export function endRoundEmptyDeck(state: GameState): GameState {
+  const players = state.players.map(p => ({ ...p, score: p.score + scoreHand(p.hand) }))
+  const phase: GameState['phase'] = isMatchEnd(players) ? 'match-end' : 'round-end'
+  return {
+    ...state,
+    players,
+    phase,
+    pendingEffect: null,
+    snapWindow: null,
+    log: [...state.log, { timestamp: Date.now(), type: 'round-end', actorId: '', payload: { reason: 'deck-empty' } }],
   }
 }
 
@@ -143,8 +157,14 @@ export function snapCard(state: GameState, playerId: string, handIndex: number):
     }
   }
 
+  if (player.hand.length >= MAX_HAND_SIZE) {
+    return {
+      ...state,
+      log: [...state.log, { timestamp: Date.now(), type: 'snap-fail', actorId: playerId, payload: { attemptedRank: snappedCard.rank, capped: true } }],
+    }
+  }
   if (state.deck.length === 0) {
-    throw new Error('DECK_EMPTY')
+    return endRoundEmptyDeck(state)
   }
   const deck = [...state.deck]
   const penalty = deck.pop()!
@@ -154,7 +174,12 @@ export function snapCard(state: GameState, playerId: string, handIndex: number):
     ...state,
     players,
     deck,
-    log: [...state.log, { timestamp: Date.now(), type: 'snap-fail', actorId: playerId, payload: { attemptedRank: snappedCard.rank } }],
+    log: [...state.log, {
+      timestamp: Date.now(),
+      type: 'snap-fail',
+      actorId: playerId,
+      payload: { attemptedRank: snappedCard.rank, penaltyRank: penalty.rank, penaltyCardId: penalty.id },
+    }],
   }
 }
 

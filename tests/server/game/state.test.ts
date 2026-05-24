@@ -44,14 +44,14 @@ describe('startRound', () => {
     expect(state.phase).toBe('initial-peek')
   })
 
-  it('remaining deck tem 54 - (4 * nPlayers) cartas', () => {
+  it('remaining deck tem 108 - (4 * nPlayers) cartas', () => {
     const empty = createEmptyRoom({ roomId: 'r1', name: 'm', hostId: 'p1', hostName: 'a', maxPlayers: 2 })
     empty.players.push({
       id: 'p2', socketId: null, name: 'b', hand: [], score: 0,
       connected: true, disconnectedAt: null, revealedToSelf: [],
     })
     const state = startRound(empty)
-    expect(state.deck.length).toBe(54 - 8)
+    expect(state.deck.length).toBe(108 - 8)
   })
 
   it('reseta turn pra 0 e limpa pendingEffect/snapWindow', () => {

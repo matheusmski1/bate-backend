@@ -6,13 +6,15 @@ const SUITS: Suit[] = ['hearts', 'diamonds', 'clubs', 'spades']
 
 export function createDeck(): Card[] {
   const cards: Card[] = []
-  for (const suit of SUITS) {
-    for (const rank of RANKS) {
-      cards.push({ id: randomUUID(), rank, suit })
+  for (let copy = 0; copy < 2; copy++) {
+    for (const suit of SUITS) {
+      for (const rank of RANKS) {
+        cards.push({ id: randomUUID(), rank, suit })
+      }
     }
+    cards.push({ id: randomUUID(), rank: 'JOKER', suit: null })
+    cards.push({ id: randomUUID(), rank: 'JOKER', suit: null })
   }
-  cards.push({ id: randomUUID(), rank: 'JOKER', suit: null })
-  cards.push({ id: randomUUID(), rank: 'JOKER', suit: null })
   return cards
 }
 

@@ -75,7 +75,11 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
         log.info('game:draw', 'state', { room: payload.roomId, before: snapshot(room) })
         const { state: next, card } = drawFromDeck(room, payload.playerId)
         await lobby.setRoom(next)
-        await lobby.setDrawnCard(payload.playerId, { roomId: payload.roomId, card })
+        if (card) {
+          await lobby.setDrawnCard(payload.playerId, { roomId: payload.roomId, card })
+        } else {
+          log.warn('game:draw', 'deck empty — ending round', { room: payload.roomId })
+        }
         broadcastRoom(io, next)
         return card
       })

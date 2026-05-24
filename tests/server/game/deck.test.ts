@@ -2,29 +2,29 @@ import { describe, it, expect } from 'vitest'
 import { createDeck, shuffleDeck } from '@/server/game/deck'
 
 describe('createDeck', () => {
-  it('cria baralho com 54 cartas (52 + 2 jokers)', () => {
+  it('cria baralho duplo com 108 cartas (2 × 52 + 2 × 2 jokers)', () => {
     const deck = createDeck()
-    expect(deck).toHaveLength(54)
+    expect(deck).toHaveLength(108)
   })
 
   it('cada carta tem id único', () => {
     const deck = createDeck()
     const ids = new Set(deck.map(c => c.id))
-    expect(ids.size).toBe(54)
+    expect(ids.size).toBe(108)
   })
 
-  it('tem 13 cartas por naipe + 2 jokers', () => {
+  it('tem 26 cartas por naipe + 4 jokers (deck duplicado)', () => {
     const deck = createDeck()
     const hearts = deck.filter(c => c.suit === 'hearts').length
     const diamonds = deck.filter(c => c.suit === 'diamonds').length
     const clubs = deck.filter(c => c.suit === 'clubs').length
     const spades = deck.filter(c => c.suit === 'spades').length
     const jokers = deck.filter(c => c.rank === 'JOKER').length
-    expect(hearts).toBe(13)
-    expect(diamonds).toBe(13)
-    expect(clubs).toBe(13)
-    expect(spades).toBe(13)
-    expect(jokers).toBe(2)
+    expect(hearts).toBe(26)
+    expect(diamonds).toBe(26)
+    expect(clubs).toBe(26)
+    expect(spades).toBe(26)
+    expect(jokers).toBe(4)
   })
 
   it('jokers têm suit null', () => {

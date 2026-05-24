@@ -19,7 +19,7 @@ describe('drawFromDeck', () => {
     const deckSizeBefore = state.deck.length
     const topCard = state.deck[deckSizeBefore - 1]!
     const { state: next, card } = drawFromDeck(state, 'p1')
-    expect(card.id).toBe(topCard.id)
+    expect(card?.id).toBe(topCard.id)
     expect(next.deck.length).toBe(deckSizeBefore - 1)
   })
 
@@ -38,6 +38,7 @@ describe('discardDrawnCard', () => {
   it('coloca carta no topo do descarte; avança turno se carta normal', () => {
     const state = twoPlayerRound()
     const { state: afterDraw, card } = drawFromDeck(state, 'p1')
+    if (!card) throw new Error('expected drawn card')
     const next = discardDrawnCard(afterDraw, 'p1', card)
     expect(next.discard[next.discard.length - 1]?.id).toBe(card.id)
     if (['10', 'J', 'Q'].includes(card.rank)) {
@@ -50,6 +51,7 @@ describe('discardDrawnCard', () => {
   it('mantém snapWindow null (snap sem janela de tempo)', () => {
     const state = twoPlayerRound()
     const { state: afterDraw, card } = drawFromDeck(state, 'p1')
+    if (!card) throw new Error('expected drawn card')
     const next = discardDrawnCard(afterDraw, 'p1', card)
     expect(next.snapWindow).toBeNull()
   })
@@ -60,6 +62,7 @@ describe('swapAndDiscard', () => {
     const state = twoPlayerRound()
     const oldCardInHand = state.players[0]!.hand[0]!
     const { state: afterDraw, card: drawn } = drawFromDeck(state, 'p1')
+    if (!drawn) throw new Error('expected drawn card')
     const next = swapAndDiscard(afterDraw, 'p1', drawn, 0)
     expect(next.players[0]?.hand[0]?.id).toBe(drawn.id)
     expect(next.discard[next.discard.length - 1]?.id).toBe(oldCardInHand.id)
@@ -88,6 +91,7 @@ describe('swapAndDiscard', () => {
       deck: [{ id: 'drawn', rank: '3', suit: 'diamonds' }],
     }
     const { state: afterDraw, card } = drawFromDeck(state, 'p1')
+    if (!card) throw new Error('expected drawn card')
     const next = swapAndDiscard(afterDraw, 'p1', card, 0)
     expect(next.phase).toBe('effect-pending')
     expect(next.pendingEffect?.type).toBe('swap')
