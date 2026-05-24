@@ -58,7 +58,7 @@ describe('snapCard - falha', () => {
   })
 
   it('snap com carta de rank errado: carta volta e player ganha carta de penalidade', () => {
-    const state = baseState()
+    const state = { ...baseState(), turn: 1 }
     const next = snapCard(state, 'p1', 1)
     expect(next.players[0]?.hand).toHaveLength(3)
     expect(next.players[0]?.hand.some(c => c.id === 'K-hearts')).toBe(true)
@@ -66,17 +66,22 @@ describe('snapCard - falha', () => {
   })
 
   it('snap errado registra snap-fail no log', () => {
-    const state = baseState()
+    const state = { ...baseState(), turn: 1 }
     const next = snapCard(state, 'p1', 1)
     const last = next.log[next.log.length - 1]
     expect(last?.type).toBe('snap-fail')
   })
 
   it('snap errado tira carta do deck pra penalidade', () => {
-    const state = baseState()
+    const state = { ...baseState(), turn: 1 }
     const deckBefore = state.deck.length
     const next = snapCard(state, 'p1', 1)
     expect(next.deck.length).toBe(deckBefore - 1)
+  })
+
+  it('snap na própria vez lança SNAP_NOT_ALLOWED_ON_YOUR_TURN', () => {
+    const state = baseState()
+    expect(() => snapCard(state, 'p1', 0)).toThrow('SNAP_NOT_ALLOWED_ON_YOUR_TURN')
   })
 })
 

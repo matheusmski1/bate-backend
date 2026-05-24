@@ -110,6 +110,9 @@ export function snapCard(state: GameState, playerId: string, handIndex: number):
   if (state.phase !== 'playing' && state.phase !== 'cabo-called') {
     throw new Error('INVALID_PHASE')
   }
+  if (currentPlayerId(state) === playerId) {
+    throw new Error('SNAP_NOT_ALLOWED_ON_YOUR_TURN')
+  }
   const playerIdx = state.players.findIndex(p => p.id === playerId)
   if (playerIdx === -1) throw new Error('PLAYER_NOT_FOUND')
   const player = state.players[playerIdx]!
