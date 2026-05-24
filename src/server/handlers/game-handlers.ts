@@ -87,8 +87,8 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
     ack(r.ok ? { ok: true, payload: { card: r.result } } : { error: r.error })
   })
 
-  socket.on('game:keep-or-discard', async (payload: { roomId: string; playerId: string; action: 'keep' | 'discard'; handIndex?: number }, ack: Ack) => {
-    const r = await trace('game:keep-or-discard', socket, { room: payload.roomId, player: payload.playerId, action: payload.action, handIndex: payload.handIndex }, async () => {
+  socket.on('game:keep-or-discard', async (payload: { roomId: string; playerId: string; action: 'keep' | 'discard'; handIndex?: number; useEffect?: boolean }, ack: Ack) => {
+    const r = await trace('game:keep-or-discard', socket, { room: payload.roomId, player: payload.playerId, action: payload.action, handIndex: payload.handIndex, useEffect: payload.useEffect }, async () => {
       return await lobby.withRoomLock(payload.roomId, async () => {
         const room = await lobby.getRoom(payload.roomId)
         if (!room) throw new Error('ROOM_NOT_FOUND')
@@ -97,7 +97,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
         const drawnCard = cached.card
         let next
         if (payload.action === 'discard') {
-          next = discardDrawnCard(room, payload.playerId, drawnCard)
+          next = discardDrawnCard(room, payload.playerId, drawnCard, payload.useEffect ?? true)
         } else {
           if (payload.handIndex === undefined) throw new Error('HAND_INDEX_REQUIRED')
           next = swapAndDiscard(room, payload.playerId, drawnCard, payload.handIndex)

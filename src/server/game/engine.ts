@@ -65,12 +65,12 @@ function effectFromRank(card: Card, playerId: string): GameState['pendingEffect'
   return null
 }
 
-export function discardDrawnCard(state: GameState, playerId: string, card: Card): GameState {
+export function discardDrawnCard(state: GameState, playerId: string, card: Card, useEffect = true): GameState {
   if (currentPlayerId(state) !== playerId) {
     throw new Error('NOT_YOUR_TURN')
   }
   const discard = [...state.discard, card]
-  const pendingEffect = effectFromRank(card, playerId)
+  const pendingEffect = useEffect ? effectFromRank(card, playerId) : null
   const log = logEvent(state, 'discard', playerId, { cardId: card.id, rank: card.rank })
   const afterDiscard: GameState = { ...state, discard, log, snapWindow: null }
   if (pendingEffect) {
