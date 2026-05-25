@@ -1,7 +1,7 @@
 import type { Server as SocketServer, Socket } from 'socket.io'
 import { lobby } from '../lobby'
 import { broadcastRoom } from './broadcast'
-import { pauseTimer, resumeTimer } from '../game/engine'
+import { pauseTimer, resumeTimer, removePlayerMidGame } from '../game/engine'
 
 const VALID_EMOTES = ['clap', 'shock', 'cry', 'fire', 'clock', 'brain'] as const
 type Emote = typeof VALID_EMOTES[number]
@@ -106,6 +106,40 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
         io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
       } catch (err) {
         console.log(`[room:join] ERROR ${err instanceof Error ? err.message : 'UNKNOWN'} for player=${payload.playerId} room=${payload.roomId}`)
+        ack({ error: err instanceof Error ? err.message : 'UNKNOWN' })
+      }
+    },
+  )
+
+  socket.on(
+    'room:leave',
+    async (
+      payload: { roomId: string; playerId: string },
+      ack: (res: { ok: true } | { error: string }) => void,
+    ) => {
+      try {
+        const result = await lobby.withRoomLock(payload.roomId, async () => {
+          const room = await lobby.getRoom(payload.roomId)
+          if (!room) return null
+          const inGame = room.phase !== 'waiting' && room.phase !== 'round-end' && room.phase !== 'match-end'
+          if (inGame) {
+            const adjusted = removePlayerMidGame(room, payload.playerId)
+            await lobby.setRoom(adjusted)
+            if (adjusted.players.length === 0) {
+              await lobby.removeRoom(payload.roomId)
+              return null
+            }
+            return adjusted
+          }
+          return await lobby.removePlayer(payload.roomId, payload.playerId) ?? null
+        })
+        socket.leave(payload.roomId)
+        await lobby.releaseSocket(socket.id)
+        ack({ ok: true })
+        if (result) broadcastRoom(io, result)
+        io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
+        console.log(`[room:leave] socket=${socket.id} player=${payload.playerId} room=${payload.roomId}`)
+      } catch (err) {
         ack({ error: err instanceof Error ? err.message : 'UNKNOWN' })
       }
     },
