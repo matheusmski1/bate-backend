@@ -58,6 +58,7 @@ export class MemoryStorage implements Storage {
       disconnectedAt: null,
       revealedToSelf: [],
       skin: input.skin ?? 'default',
+      deck: input.deck ?? 'default',
     }
     const next = { ...state, players: [...state.players, player] }
     this.rooms.set(roomId, next)

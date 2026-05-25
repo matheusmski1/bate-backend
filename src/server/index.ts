@@ -13,7 +13,9 @@ import { signGuestToken, sessionCookie, readSessionCookie, verifyToken } from '.
 import { AppDataSource } from './db/data-source'
 import { ensureUser } from './db/users'
 import { seedDefaultSkins } from './db/seed-skins'
+import { seedDefaultDecks } from './db/seed-decks'
 import { listSkinsForUser, equipSkinForUser } from './db/skins'
+import { listDecksForUser, equipDeckForUser } from './db/decks'
 import { removePlayerMidGame, discardDrawnCard, skipEffect, autoPlayExpiredTurn } from './game/engine'
 
 const port = Number(process.env.PORT ?? 3001)
@@ -106,6 +108,45 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
       })
     return
   }
+  if (req.url === '/me/decks' && req.method === 'GET') {
+    const token = readSessionCookie(req.headers.cookie)
+    const claims = token ? verifyToken(token) : null
+    if (!claims) { sendJson(req, res, 401, { error: 'UNAUTHORIZED' }); return }
+    if (!AppDataSource.isInitialized) { sendJson(req, res, 503, { error: 'DB_UNAVAILABLE' }); return }
+    listDecksForUser(claims.sub)
+      .then(decks => sendJson(req, res, 200, { decks }))
+      .catch(err => {
+        console.error('[me/decks] failed:', err)
+        sendJson(req, res, 500, { error: 'SERVER_ERROR' })
+      })
+    return
+  }
+  if (req.url === '/me/equip-deck' && req.method === 'POST') {
+    const token = readSessionCookie(req.headers.cookie)
+    const claims = token ? verifyToken(token) : null
+    if (!claims) { sendJson(req, res, 401, { error: 'UNAUTHORIZED' }); return }
+    if (!AppDataSource.isInitialized) { sendJson(req, res, 503, { error: 'DB_UNAVAILABLE' }); return }
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => {
+      let deckId: string | null = null
+      try {
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as { deckId?: unknown }
+        if (typeof body.deckId === 'string' && /^[a-z0-9_-]{1,64}$/.test(body.deckId)) deckId = body.deckId
+      } catch { /* invalid json */ }
+      if (!deckId) { sendJson(req, res, 400, { error: 'INVALID_DECK_ID' }); return }
+      equipDeckForUser(claims.sub, deckId)
+        .then(result => {
+          if (!result.ok) { sendJson(req, res, 403, { error: result.error }); return }
+          sendJson(req, res, 200, { ok: true, equippedDeck: deckId })
+        })
+        .catch(err => {
+          console.error('[me/equip-deck] failed:', err)
+          sendJson(req, res, 500, { error: 'SERVER_ERROR' })
+        })
+    })
+    return
+  }
   if (req.url === '/me/equip-skin' && req.method === 'POST') {
     const token = readSessionCookie(req.headers.cookie)
     const claims = token ? verifyToken(token) : null
@@ -180,6 +221,12 @@ if (process.env.DATABASE_URL) {
       console.log(`[db] seed skins inserted=${seed.inserted} updated=${seed.updated}`)
     } catch (err) {
       console.error('[db] seed skins failed:', err)
+    }
+    try {
+      const seed = await seedDefaultDecks()
+      console.log(`[db] seed decks inserted=${seed.inserted} updated=${seed.updated}`)
+    } catch (err) {
+      console.error('[db] seed decks failed:', err)
     }
   } catch (err) {
     console.error('[db] initialize failed:', err)

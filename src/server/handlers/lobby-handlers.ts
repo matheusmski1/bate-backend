@@ -4,11 +4,21 @@ import { broadcastRoom } from './broadcast'
 import { pauseTimer, resumeTimer, removePlayerMidGame } from '../game/engine'
 import { AppDataSource } from '../db/data-source'
 import { getEquippedSkin } from '../db/skins'
+import { getEquippedDeck } from '../db/decks'
 
 async function lookupSkin(playerId: string): Promise<string> {
   if (!AppDataSource.isInitialized) return 'default'
   try {
     return await getEquippedSkin(playerId)
+  } catch {
+    return 'default'
+  }
+}
+
+async function lookupDeck(playerId: string): Promise<string> {
+  if (!AppDataSource.isInitialized) return 'default'
+  try {
+    return await getEquippedDeck(playerId)
   } catch {
     return 'default'
   }
@@ -41,8 +51,8 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
     const payload = parseAndAuth(RoomCreateSchema, raw, ack, socket)
     if (!payload) return
     try {
-      const skin = await lookupSkin(payload.hostId)
-      const state = await lobby.createRoom({ ...payload, skin })
+      const [skin, deck] = await Promise.all([lookupSkin(payload.hostId), lookupDeck(payload.hostId)])
+      const state = await lobby.createRoom({ ...payload, skin, deck })
       ack({ roomId: state.roomId })
       io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
     } catch (err) {
@@ -95,13 +105,14 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
     const payload = parseAndAuth(RoomJoinSchema, raw, ack, socket)
     if (!payload) return
     try {
-      const skin = await lookupSkin(payload.playerId)
+      const [skin, deck] = await Promise.all([lookupSkin(payload.playerId), lookupDeck(payload.playerId)])
       const state = await lobby.withRoomLock(payload.roomId, async () => {
-        const next = await lobby.joinRoom(payload.roomId, { ...payload, skin })
+        const next = await lobby.joinRoom(payload.roomId, { ...payload, skin, deck })
         const player = next.players.find(p => p.id === payload.playerId)
         if (player) {
           player.socketId = socket.id
           player.skin = skin
+          player.deck = deck
         }
         await lobby.setRoom(next)
         return next

@@ -3,6 +3,8 @@ import { DataSource } from 'typeorm'
 import { User } from './entities/User'
 import { Skin } from './entities/Skin'
 import { UserSkin } from './entities/UserSkin'
+import { Deck } from './entities/Deck'
+import { UserDeck } from './entities/UserDeck'
 
 const url = process.env.DATABASE_URL
 
@@ -24,7 +26,7 @@ export const AppDataSource = new DataSource({
   url: url ?? '',
   synchronize: false,
   logging: process.env.DATABASE_LOG === 'true',
-  entities: [User, Skin, UserSkin],
+  entities: [User, Skin, UserSkin, Deck, UserDeck],
   migrations: ['src/server/db/migrations/*.ts'],
   migrationsTableName: 'typeorm_migrations',
   ssl: useSSL ? { rejectUnauthorized: false } : false,

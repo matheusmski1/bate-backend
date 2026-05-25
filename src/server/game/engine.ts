@@ -134,7 +134,7 @@ export function discardDrawnCard(state: GameState, playerId: string, card: Card,
   if (currentPlayerId(state) !== playerId) {
     throw new Error('NOT_YOUR_TURN')
   }
-  const discard = [...state.discard, card]
+  const discard = [...state.discard, { ...card, discardedBy: playerId }]
   const pendingEffect = useEffect ? effectFromRank(card, playerId) : null
   const log = logEvent(state, 'discard', playerId, { cardId: card.id, rank: card.rank })
   const afterDiscard: GameState = { ...state, discard, log, snapWindow: null }
@@ -158,7 +158,7 @@ export function swapAndDiscard(state: GameState, playerId: string, drawn: Card, 
   newHand[handIndex] = drawn
   const players = [...state.players]
   players[playerIdx] = { ...player, hand: newHand }
-  const discard = [...state.discard, oldCard]
+  const discard = [...state.discard, { ...oldCard, discardedBy: playerId }]
   const pendingEffect = effectFromRank(oldCard, playerId)
   const log = logEvent(state, 'discard', playerId, { cardId: oldCard.id, rank: oldCard.rank, swappedFromHand: true })
   const afterSwap: GameState = { ...state, players, discard, log, snapWindow: null }
@@ -192,7 +192,7 @@ export function snapCard(state: GameState, playerId: string, handIndex: number):
     const afterSnap: GameState = {
       ...state,
       players,
-      discard: [...state.discard, snappedCard],
+      discard: [...state.discard, { ...snappedCard, discardedBy: playerId }],
       log: [...state.log, { timestamp: Date.now(), type: 'snap', actorId: playerId, payload: { cardId: snappedCard.id, rank: snappedCard.rank } }],
     }
     if (newHand.length === 0 && state.bateCallerId === null) {

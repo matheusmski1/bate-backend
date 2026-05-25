@@ -9,6 +9,7 @@ type CreateRoomInput = {
   maxPlayers: 2 | 3 | 4
   turnTimeLimitSec?: number | null
   skin?: string
+  deck?: string
 }
 
 export function createEmptyRoom(input: CreateRoomInput): GameState {
@@ -22,6 +23,7 @@ export function createEmptyRoom(input: CreateRoomInput): GameState {
     disconnectedAt: null,
     revealedToSelf: [],
     skin: input.skin ?? 'default',
+    deck: input.deck ?? 'default',
   }
   return {
     roomId: input.roomId,

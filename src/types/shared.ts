@@ -8,6 +8,7 @@ export type Card = {
   id: string
   rank: Rank
   suit: Suit | null
+  discardedBy?: string
 }
 
 export type GamePhase =
@@ -42,6 +43,7 @@ export type Player = {
   disconnectedAt: number | null
   revealedToSelf: string[]
   skin: string
+  deck: string
 }
 
 export type GameActionType =
