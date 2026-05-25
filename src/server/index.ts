@@ -12,6 +12,7 @@ import { audit, recent as recentAudit, summary as auditSummary } from './audit'
 import { signGuestToken, sessionCookie, readSessionCookie, verifyToken } from './auth'
 import { AppDataSource } from './db/data-source'
 import { ensureUser } from './db/users'
+import { seedDefaultSkins } from './db/seed-skins'
 import { removePlayerMidGame, discardDrawnCard, skipEffect, autoPlayExpiredTurn } from './game/engine'
 
 const port = Number(process.env.PORT ?? 3001)
@@ -132,6 +133,12 @@ if (process.env.DATABASE_URL) {
   try {
     await AppDataSource.initialize()
     console.log('[db] datasource initialized')
+    try {
+      const seed = await seedDefaultSkins()
+      console.log(`[db] seed skins inserted=${seed.inserted} updated=${seed.updated}`)
+    } catch (err) {
+      console.error('[db] seed skins failed:', err)
+    }
   } catch (err) {
     console.error('[db] initialize failed:', err)
     if (IS_PROD) process.exit(1)
