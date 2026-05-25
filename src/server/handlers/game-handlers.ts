@@ -26,7 +26,10 @@ async function trace<T>(
     return { ok: true, result }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'UNKNOWN'
-    log.error(event, 'fail', { socket: socket.id, ms: Date.now() - t0, error: msg, ...payload })
+    const benign = msg === 'INVALID_HAND_INDEX' || msg === 'NOT_YOUR_TURN' || msg === 'INVALID_PHASE'
+    const fields = { socket: socket.id, ms: Date.now() - t0, error: msg, ...payload }
+    if (benign) log.info(event, 'reject', fields)
+    else log.error(event, 'fail', fields)
     return { ok: false, error: msg }
   }
 }
