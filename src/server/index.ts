@@ -8,10 +8,22 @@ import { broadcastRoom } from './handlers/broadcast'
 import { lobby } from './lobby'
 import { consume as consumeRate, release as releaseRate } from './rate-limit'
 import { log } from './logger'
+import { audit, recent as recentAudit, summary as auditSummary } from './audit'
 import { removePlayerMidGame, discardDrawnCard, skipEffect, autoPlayExpiredTurn } from './game/engine'
 
 const port = Number(process.env.PORT ?? 3001)
 const corsOrigin = process.env.CORS_ORIGIN ?? '*'
+const ALLOWED_ORIGINS: ReadonlyArray<string> = (() => {
+  const fromEnv = (process.env.CORS_ORIGIN ?? '').split(',').map(s => s.trim()).filter(Boolean)
+  const devDefaults = ['http://localhost:3000', 'http://127.0.0.1:3000']
+  return [...new Set([...fromEnv, ...devDefaults])]
+})()
+
+function isOriginAllowed(origin: string | undefined): boolean {
+  if (corsOrigin === '*') return true
+  if (!origin) return false
+  return ALLOWED_ORIGINS.includes(origin)
+}
 const RECONNECT_GRACE_MS = 30_000
 const IDLE_ROOM_MS = 5 * 60 * 1000
 const CLEANUP_INTERVAL_MS = 30_000
@@ -20,6 +32,11 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
   if (req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({ ok: true, uptime: process.uptime(), pid: process.pid, redis: !!process.env.REDIS_URL }))
+    return
+  }
+  if (req.url === '/health/audit') {
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ summary: auditSummary(), recent: recentAudit(50) }))
     return
   }
   if (req.url === '/') {
@@ -52,11 +69,24 @@ if (process.env.REDIS_URL) {
 
 const pendingDisconnects = new Map<string, NodeJS.Timeout>()
 
+io.use((socket, next) => {
+  const origin = socket.handshake.headers.origin
+  if (!isOriginAllowed(origin)) {
+    log.warn('socket', 'origin rejected', { socket: socket.id, origin: origin ?? null })
+    audit('origin_rejected', socket.id, { origin: origin ?? null })
+    next(new Error('ORIGIN_NOT_ALLOWED'))
+    return
+  }
+  next()
+})
+
 io.on('connection', socket => {
   log.info('socket', 'connected', { socket: socket.id })
-  socket.use((_event, next) => {
-    if (!consumeRate(socket.id)) {
-      log.warn('rate-limit', 'dropping event', { socket: socket.id })
+  socket.use(([eventName], next) => {
+    const event = typeof eventName === 'string' ? eventName : '__global'
+    if (!consumeRate(socket.id, event)) {
+      log.warn('rate-limit', 'dropping event', { socket: socket.id, event })
+      audit('rate_limit_hit', socket.id, { event })
       next(new Error('RATE_LIMITED'))
       return
     }
