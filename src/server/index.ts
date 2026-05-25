@@ -35,21 +35,34 @@ const RECONNECT_GRACE_MS = 30_000
 const IDLE_ROOM_MS = 5 * 60 * 1000
 const CLEANUP_INTERVAL_MS = 30_000
 
-function applyCors(req: IncomingMessage, res: ServerResponse): boolean {
+function corsHeaders(req: IncomingMessage): Record<string, string> {
   const origin = req.headers.origin
-  if (origin && isOriginAllowed(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin)
-    res.setHeader('Vary', 'Origin')
-    res.setHeader('Access-Control-Allow-Credentials', 'true')
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-    res.setHeader('Access-Control-Allow-Headers', 'content-type')
+  if (!origin || !isOriginAllowed(origin)) return {}
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Vary': 'Origin',
+    'Access-Control-Allow-Credentials': 'true',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'content-type',
   }
+}
+
+function applyCors(req: IncomingMessage, res: ServerResponse): boolean {
   if (req.method === 'OPTIONS') {
-    res.writeHead(204)
+    res.writeHead(204, corsHeaders(req))
     res.end()
     return true
   }
   return false
+}
+
+function sendJson(req: IncomingMessage, res: ServerResponse, status: number, payload: unknown, extraHeaders: Record<string, string> = {}): void {
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    ...corsHeaders(req),
+    ...extraHeaders,
+  })
+  res.end(JSON.stringify(payload))
 }
 
 const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
@@ -57,7 +70,7 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
   if (req.url === '/auth/guest') {
     const dbReady = AppDataSource.isInitialized
     const existing = readSessionCookie(req.headers.cookie)
-    const respond = async (playerId: string, kind: 'guest', expiresAt: number) => {
+    const respond = async (playerId: string, kind: 'guest', expiresAt: number, extraHeaders: Record<string, string> = {}) => {
       if (dbReady) {
         try {
           await ensureUser(playerId)
@@ -65,8 +78,7 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
           console.error('[auth/guest] ensureUser failed:', err)
         }
       }
-      res.writeHead(200, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ playerId, kind, expiresAt }))
+      sendJson(req, res, 200, { playerId, kind, expiresAt }, extraHeaders)
     }
     if (existing) {
       const claims = verifyToken(existing)
@@ -77,48 +89,28 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
     }
     const { token, playerId, expiresAt } = signGuestToken()
     const requestHost = (req.headers.host ?? '').split(':')[0]
-    res.setHeader('Set-Cookie', sessionCookie(token, { secure: IS_PROD, domain: COOKIE_DOMAIN, requestHost }))
-    void respond(playerId, 'guest', expiresAt)
+    const setCookie = sessionCookie(token, { secure: IS_PROD, domain: COOKIE_DOMAIN, requestHost })
+    void respond(playerId, 'guest', expiresAt, { 'Set-Cookie': setCookie })
     return
   }
   if (req.url === '/me/skins' && req.method === 'GET') {
     const token = readSessionCookie(req.headers.cookie)
     const claims = token ? verifyToken(token) : null
-    if (!claims) {
-      res.writeHead(401, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ error: 'UNAUTHORIZED' }))
-      return
-    }
-    if (!AppDataSource.isInitialized) {
-      res.writeHead(503, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ error: 'DB_UNAVAILABLE' }))
-      return
-    }
+    if (!claims) { sendJson(req, res, 401, { error: 'UNAUTHORIZED' }); return }
+    if (!AppDataSource.isInitialized) { sendJson(req, res, 503, { error: 'DB_UNAVAILABLE' }); return }
     listSkinsForUser(claims.sub)
-      .then(skins => {
-        res.writeHead(200, { 'Content-Type': 'application/json' })
-        res.end(JSON.stringify({ skins }))
-      })
+      .then(skins => sendJson(req, res, 200, { skins }))
       .catch(err => {
         console.error('[me/skins] failed:', err)
-        res.writeHead(500, { 'Content-Type': 'application/json' })
-        res.end(JSON.stringify({ error: 'SERVER_ERROR' }))
+        sendJson(req, res, 500, { error: 'SERVER_ERROR' })
       })
     return
   }
   if (req.url === '/me/equip-skin' && req.method === 'POST') {
     const token = readSessionCookie(req.headers.cookie)
     const claims = token ? verifyToken(token) : null
-    if (!claims) {
-      res.writeHead(401, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ error: 'UNAUTHORIZED' }))
-      return
-    }
-    if (!AppDataSource.isInitialized) {
-      res.writeHead(503, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ error: 'DB_UNAVAILABLE' }))
-      return
-    }
+    if (!claims) { sendJson(req, res, 401, { error: 'UNAUTHORIZED' }); return }
+    if (!AppDataSource.isInitialized) { sendJson(req, res, 503, { error: 'DB_UNAVAILABLE' }); return }
     const chunks: Buffer[] = []
     req.on('data', (c: Buffer) => chunks.push(c))
     req.on('end', () => {
@@ -127,54 +119,33 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
         const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as { skinId?: unknown }
         if (typeof body.skinId === 'string' && /^[a-z0-9_-]{1,64}$/.test(body.skinId)) skinId = body.skinId
       } catch { /* invalid json */ }
-      if (!skinId) {
-        res.writeHead(400, { 'Content-Type': 'application/json' })
-        res.end(JSON.stringify({ error: 'INVALID_SKIN_ID' }))
-        return
-      }
+      if (!skinId) { sendJson(req, res, 400, { error: 'INVALID_SKIN_ID' }); return }
       equipSkinForUser(claims.sub, skinId)
         .then(result => {
-          if (!result.ok) {
-            res.writeHead(403, { 'Content-Type': 'application/json' })
-            res.end(JSON.stringify({ error: result.error }))
-            return
-          }
-          res.writeHead(200, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ ok: true, equippedSkin: skinId }))
+          if (!result.ok) { sendJson(req, res, 403, { error: result.error }); return }
+          sendJson(req, res, 200, { ok: true, equippedSkin: skinId })
         })
         .catch(err => {
           console.error('[me/equip-skin] failed:', err)
-          res.writeHead(500, { 'Content-Type': 'application/json' })
-          res.end(JSON.stringify({ error: 'SERVER_ERROR' }))
+          sendJson(req, res, 500, { error: 'SERVER_ERROR' })
         })
     })
     return
   }
   if (req.url === '/auth/me') {
     const token = readSessionCookie(req.headers.cookie)
-    if (!token) {
-      res.writeHead(401, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ error: 'NO_SESSION' }))
-      return
-    }
+    if (!token) { sendJson(req, res, 401, { error: 'NO_SESSION' }); return }
     const claims = verifyToken(token)
-    if (!claims) {
-      res.writeHead(401, { 'Content-Type': 'application/json' })
-      res.end(JSON.stringify({ error: 'INVALID_SESSION' }))
-      return
-    }
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ playerId: claims.sub, kind: claims.kind, expiresAt: claims.exp * 1000 }))
+    if (!claims) { sendJson(req, res, 401, { error: 'INVALID_SESSION' }); return }
+    sendJson(req, res, 200, { playerId: claims.sub, kind: claims.kind, expiresAt: claims.exp * 1000 })
     return
   }
   if (req.url === '/health') {
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ ok: true, uptime: process.uptime(), pid: process.pid, redis: !!process.env.REDIS_URL }))
+    sendJson(req, res, 200, { ok: true, uptime: process.uptime(), pid: process.pid, redis: !!process.env.REDIS_URL })
     return
   }
   if (req.url === '/health/audit') {
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ summary: auditSummary(), recent: recentAudit(50) }))
+    sendJson(req, res, 200, { summary: auditSummary(), recent: recentAudit(50) })
     return
   }
   if (req.url === '/') {
