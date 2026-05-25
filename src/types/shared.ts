@@ -75,6 +75,7 @@ export type GameState = {
   paused: boolean
   pausedRemainingMs: number | null
   roundTurnCount: number
+  roundNumber: number
 }
 
 export type RedactedCard = { id: string; rank: Rank; suit: Suit | null } | { id: string; hidden: true }
