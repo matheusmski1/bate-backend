@@ -24,30 +24,8 @@ function withFreshTurnTimer(state: GameState): GameState {
   return { ...state, turnDeadlineAt: nextDeadline(state), paused: false, pausedRemainingMs: null }
 }
 
-function tryEndRoundIfEmptyHand(state: GameState, nextTurnIdx: number): GameState | null {
-  const nextPlayer = state.players[nextTurnIdx]
-  if (!nextPlayer || nextPlayer.hand.length > 0) return null
-  const players = state.players.map(p => ({ ...p, score: p.score + scoreHand(p.hand) }))
-  return {
-    ...state,
-    players,
-    turn: nextTurnIdx,
-    caboCallerId: state.caboCallerId ?? nextPlayer.id,
-    phase: isMatchEnd(players) ? 'match-end' : 'round-end',
-    pendingEffect: null,
-    snapWindow: null,
-    turnDeadlineAt: null,
-    paused: false,
-    pausedRemainingMs: null,
-    roundTurnCount: state.roundTurnCount + 1,
-    log: [...state.log, { timestamp: Date.now(), type: 'round-end', actorId: nextPlayer.id, payload: { reason: 'empty-hand-bate' } }],
-  }
-}
-
 function advanceTurn(state: GameState): GameState {
   const nextTurn = (state.turn + 1) % state.players.length
-  const emptyEnd = tryEndRoundIfEmptyHand(state, nextTurn)
-  if (emptyEnd) return emptyEnd
   let phase = state.phase
   let turnsRemaining = state.turnsRemaining
   let players = state.players
@@ -205,12 +183,22 @@ export function snapCard(state: GameState, playerId: string, handIndex: number):
     const newHand = player.hand.filter((_, i) => i !== handIndex)
     const players = [...state.players]
     players[playerIdx] = { ...player, hand: newHand }
-    return {
+    const afterSnap: GameState = {
       ...state,
       players,
       discard: [...state.discard, snappedCard],
       log: [...state.log, { timestamp: Date.now(), type: 'snap', actorId: playerId, payload: { cardId: snappedCard.id, rank: snappedCard.rank } }],
     }
+    if (newHand.length === 0 && state.caboCallerId === null) {
+      return {
+        ...afterSnap,
+        caboCallerId: playerId,
+        phase: 'cabo-called',
+        turnsRemaining: state.players.length - 1,
+        log: [...afterSnap.log, { timestamp: Date.now(), type: 'cabo', actorId: playerId, payload: { reason: 'empty-hand' } }],
+      }
+    }
+    return afterSnap
   }
 
   if (player.hand.length >= MAX_HAND_SIZE) {
@@ -312,8 +300,6 @@ export function skipEffect(state: GameState, playerId: string): GameState {
 
 function advanceTurnExported(state: GameState): GameState {
   const nextTurn = (state.turn + 1) % state.players.length
-  const emptyEnd = tryEndRoundIfEmptyHand(state, nextTurn)
-  if (emptyEnd) return emptyEnd
   let phase = state.phase
   let turnsRemaining = state.turnsRemaining
   let players = state.players
@@ -356,8 +342,6 @@ export function callCabo(state: GameState, playerId: string): GameState {
     log: [...state.log, { timestamp: Date.now(), type: 'cabo', actorId: playerId }],
   }
   const nextTurn = (withCabo.turn + 1) % withCabo.players.length
-  const emptyEnd = tryEndRoundIfEmptyHand(withCabo, nextTurn)
-  if (emptyEnd) return emptyEnd
   return withFreshTurnTimer({ ...withCabo, turn: nextTurn, roundTurnCount: withCabo.roundTurnCount + 1 })
 }
 
