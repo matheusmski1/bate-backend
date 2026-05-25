@@ -41,6 +41,7 @@ export function createEmptyRoom(input: CreateRoomInput): GameState {
     turnDeadlineAt: null,
     paused: false,
     pausedRemainingMs: null,
+    roundTurnCount: 0,
   }
 }
 
@@ -66,5 +67,6 @@ export function startRound(state: GameState): GameState {
     turnDeadlineAt: null,
     paused: false,
     pausedRemainingMs: null,
+    roundTurnCount: 1,
   }
 }

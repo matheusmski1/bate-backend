@@ -18,7 +18,7 @@ function threePlayerState(turn = 0): GameState {
     turn, phase: 'playing',
     caboCallerId: null, turnsRemaining: null,
     pendingEffect: null, snapWindow: null,
-    log: [], createdAt: Date.now(), turnTimeLimitSec: 60, turnDeadlineAt: null, paused: false, pausedRemainingMs: null,
+    log: [], createdAt: Date.now(), turnTimeLimitSec: 60, turnDeadlineAt: null, paused: false, pausedRemainingMs: null, roundTurnCount: 0,
   }
 }
 
