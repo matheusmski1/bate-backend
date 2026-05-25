@@ -59,6 +59,7 @@ export class MemoryStorage implements Storage {
       revealedToSelf: [],
       skin: input.skin ?? 'default',
       deck: input.deck ?? 'default',
+      arena: input.arena ?? 'default',
     }
     const next = { ...state, players: [...state.players, player] }
     this.rooms.set(roomId, next)

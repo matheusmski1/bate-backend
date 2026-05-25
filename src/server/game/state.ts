@@ -10,6 +10,7 @@ type CreateRoomInput = {
   turnTimeLimitSec?: number | null
   skin?: string
   deck?: string
+  arena?: string
 }
 
 export function createEmptyRoom(input: CreateRoomInput): GameState {
@@ -24,6 +25,7 @@ export function createEmptyRoom(input: CreateRoomInput): GameState {
     revealedToSelf: [],
     skin: input.skin ?? 'default',
     deck: input.deck ?? 'default',
+    arena: input.arena ?? 'default',
   }
   return {
     roomId: input.roomId,
