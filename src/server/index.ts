@@ -17,6 +17,7 @@ import { seedDefaultDecks, backfillDefaultDecksToAllUsers } from './db/seed-deck
 import { seedDefaultArenas, backfillDefaultArenasToAllUsers } from './db/seed-arenas'
 import { listSkinsForUser, equipSkinForUser } from './db/skins'
 import { listDecksForUser, equipDeckForUser } from './db/decks'
+import { listArenasForUser, equipArenaForUser } from './db/arenas'
 import { removePlayerMidGame, discardDrawnCard, skipEffect, autoPlayExpiredTurn } from './game/engine'
 
 const port = Number(process.env.PORT ?? 3001)
@@ -122,6 +123,19 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
       })
     return
   }
+  if (req.url === '/me/arenas' && req.method === 'GET') {
+    const token = readSessionCookie(req.headers.cookie)
+    const claims = token ? verifyToken(token) : null
+    if (!claims) { sendJson(req, res, 401, { error: 'UNAUTHORIZED' }); return }
+    if (!AppDataSource.isInitialized) { sendJson(req, res, 503, { error: 'DB_UNAVAILABLE' }); return }
+    listArenasForUser(claims.sub)
+      .then(arenas => sendJson(req, res, 200, { arenas }))
+      .catch(err => {
+        console.error('[me/arenas] failed:', err)
+        sendJson(req, res, 500, { error: 'SERVER_ERROR' })
+      })
+    return
+  }
   if (req.url === '/me/equip-deck' && req.method === 'POST') {
     const token = readSessionCookie(req.headers.cookie)
     const claims = token ? verifyToken(token) : null
@@ -143,6 +157,32 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
         })
         .catch(err => {
           console.error('[me/equip-deck] failed:', err)
+          sendJson(req, res, 500, { error: 'SERVER_ERROR' })
+        })
+    })
+    return
+  }
+  if (req.url === '/me/equip-arena' && req.method === 'POST') {
+    const token = readSessionCookie(req.headers.cookie)
+    const claims = token ? verifyToken(token) : null
+    if (!claims) { sendJson(req, res, 401, { error: 'UNAUTHORIZED' }); return }
+    if (!AppDataSource.isInitialized) { sendJson(req, res, 503, { error: 'DB_UNAVAILABLE' }); return }
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => {
+      let arenaId: string | null = null
+      try {
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as { arenaId?: unknown }
+        if (typeof body.arenaId === 'string' && /^[a-z0-9_-]{1,64}$/.test(body.arenaId)) arenaId = body.arenaId
+      } catch { /* invalid json */ }
+      if (!arenaId) { sendJson(req, res, 400, { error: 'INVALID_ARENA_ID' }); return }
+      equipArenaForUser(claims.sub, arenaId)
+        .then(result => {
+          if (!result.ok) { sendJson(req, res, 403, { error: result.error }); return }
+          sendJson(req, res, 200, { ok: true, equippedArena: arenaId })
+        })
+        .catch(err => {
+          console.error('[me/equip-arena] failed:', err)
           sendJson(req, res, 500, { error: 'SERVER_ERROR' })
         })
     })
