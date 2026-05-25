@@ -14,6 +14,7 @@ import { AppDataSource } from './db/data-source'
 import { ensureUser } from './db/users'
 import { seedDefaultSkins, backfillDefaultSkinsToAllUsers } from './db/seed-skins'
 import { seedDefaultDecks, backfillDefaultDecksToAllUsers } from './db/seed-decks'
+import { seedDefaultArenas, backfillDefaultArenasToAllUsers } from './db/seed-arenas'
 import { listSkinsForUser, equipSkinForUser } from './db/skins'
 import { listDecksForUser, equipDeckForUser } from './db/decks'
 import { removePlayerMidGame, discardDrawnCard, skipEffect, autoPlayExpiredTurn } from './game/engine'
@@ -231,6 +232,14 @@ if (process.env.DATABASE_URL) {
       console.log(`[db] backfill decks granted=${backfill.granted}`)
     } catch (err) {
       console.error('[db] seed/backfill decks failed:', err)
+    }
+    try {
+      const seed = await seedDefaultArenas()
+      console.log(`[db] seed arenas inserted=${seed.inserted} updated=${seed.updated}`)
+      const backfill = await backfillDefaultArenasToAllUsers()
+      console.log(`[db] backfill arenas granted=${backfill.granted}`)
+    } catch (err) {
+      console.error('[db] seed/backfill arenas failed:', err)
     }
   } catch (err) {
     console.error('[db] initialize failed:', err)
