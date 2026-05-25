@@ -16,6 +16,8 @@
     "isolatedModules": true,
     "incremental": true,
     "noEmit": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "paths": {
       "@/*": ["./src/*"]
     }
