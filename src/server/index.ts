@@ -263,7 +263,7 @@ setInterval(async () => {
     if (room.paused) continue
     if (room.turnDeadlineAt === null) continue
     if (room.turnDeadlineAt > now) continue
-    const activePhases = ['playing', 'cabo-called', 'effect-pending']
+    const activePhases = ['playing', 'bate-called', 'effect-pending']
     if (!activePhases.includes(room.phase)) continue
     await lobby.withRoomLock(summary.roomId, async () => {
       const r2 = await lobby.getRoom(summary.roomId)

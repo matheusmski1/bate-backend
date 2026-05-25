@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { callCabo, finishRound } from '@/server/game/engine'
+import { callBate, finishRound } from '@/server/game/engine'
 import type { Card, GameState, Player } from '@/types/shared'
 
 function card(rank: Card['rank'], suit: Card['suit'] = 'hearts', id = `${rank}-${suit}`): Card {
@@ -16,42 +16,42 @@ function threePlayerState(turn = 0): GameState {
     roomId: 'r1', name: 'm', hostId: 'p1', maxPlayers: 4,
     players, deck: [], discard: [],
     turn, phase: 'playing',
-    caboCallerId: null, turnsRemaining: null,
+    bateCallerId: null, turnsRemaining: null,
     pendingEffect: null, snapWindow: null,
     log: [], createdAt: Date.now(), turnTimeLimitSec: 60, turnDeadlineAt: null, paused: false, pausedRemainingMs: null, roundTurnCount: 0, roundNumber: 1,
   }
 }
 
-describe('callCabo', () => {
-  it('marca caboCallerId, seta turnsRemaining = nPlayers - 1, muda phase, avança turno', () => {
+describe('callBate', () => {
+  it('marca bateCallerId, seta turnsRemaining = nPlayers - 1, muda phase, avança turno', () => {
     const state = threePlayerState(0)
-    const next = callCabo(state, 'p1')
-    expect(next.caboCallerId).toBe('p1')
+    const next = callBate(state, 'p1')
+    expect(next.bateCallerId).toBe('p1')
     expect(next.turnsRemaining).toBe(2)
-    expect(next.phase).toBe('cabo-called')
+    expect(next.phase).toBe('bate-called')
     expect(next.turn).toBe(1)
   })
 
   it('lança se phase não é playing', () => {
     const state = { ...threePlayerState(), phase: 'effect-pending' as const }
-    expect(() => callCabo(state, 'p1')).toThrow('INVALID_PHASE')
+    expect(() => callBate(state, 'p1')).toThrow('INVALID_PHASE')
   })
 
   it('lança se não é seu turno', () => {
     const state = threePlayerState(1)
-    expect(() => callCabo(state, 'p1')).toThrow('NOT_YOUR_TURN')
+    expect(() => callBate(state, 'p1')).toThrow('NOT_YOUR_TURN')
   })
 
-  it('lança se alguém já bateu cabo', () => {
-    const state = { ...threePlayerState(), caboCallerId: 'p2', phase: 'cabo-called' as const, turnsRemaining: 1 }
-    expect(() => callCabo(state, 'p1')).toThrow('CABO_ALREADY_CALLED')
+  it('lança se alguém já já chamou BATE', () => {
+    const state = { ...threePlayerState(), bateCallerId: 'p2', phase: 'bate-called' as const, turnsRemaining: 1 }
+    expect(() => callBate(state, 'p1')).toThrow('BATE_ALREADY_CALLED')
   })
 
-  it('registra cabo no log', () => {
+  it('registra bate no log', () => {
     const state = threePlayerState(0)
-    const next = callCabo(state, 'p1')
+    const next = callBate(state, 'p1')
     const last = next.log[next.log.length - 1]
-    expect(last?.type).toBe('cabo')
+    expect(last?.type).toBe('bate')
     expect(last?.actorId).toBe('p1')
   })
 })

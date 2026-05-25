@@ -4,7 +4,7 @@ import { startRound } from '../game/state'
 import {
   drawFromDeck, discardDrawnCard, swapAndDiscard,
   snapCard,
-  resolveEffect, skipEffect, callCabo, finishRound,
+  resolveEffect, skipEffect, callBate, finishRound,
   startTurnTimer,
 } from '../game/engine'
 import { broadcastRoom } from './broadcast'
@@ -16,7 +16,7 @@ import {
   GameDrawSchema,
   GameKeepOrDiscardSchema,
   GameSnapSchema,
-  GameCaboSchema,
+  GameBateSchema,
   GameSkipEffectSchema,
   GameEffectTargetSchema,
   GameNextRoundSchema,
@@ -184,16 +184,16 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
     ack(r.ok ? { ok: true, payload: { revealed: r.result } } : { error: r.error })
   })
 
-  socket.on('game:cabo', async (raw: unknown, ack: Ack) => {
-    const payload = parseAndAuth(GameCaboSchema, raw, ack, socket)
+  socket.on('game:bate', async (raw: unknown, ack: Ack) => {
+    const payload = parseAndAuth(GameBateSchema, raw, ack, socket)
     if (!payload) return
-    const r = await trace('game:cabo', socket, { room: payload.roomId, player: payload.playerId }, async () => {
+    const r = await trace('game:bate', socket, { room: payload.roomId, player: payload.playerId }, async () => {
       return await lobby.withRoomLock(payload.roomId, async () => {
         const room = await lobby.getRoom(payload.roomId)
         if (!room) throw new Error('ROOM_NOT_FOUND')
-        const next = callCabo(room, payload.playerId)
+        const next = callBate(room, payload.playerId)
         await lobby.setRoom(next)
-        io.to(payload.roomId).emit('game:cabo-called', { callerId: payload.playerId, turnsRemaining: next.turnsRemaining })
+        io.to(payload.roomId).emit('game:bate-called', { callerId: payload.playerId, turnsRemaining: next.turnsRemaining })
         broadcastRoom(io, next)
       })
     })

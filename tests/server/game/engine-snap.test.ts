@@ -15,7 +15,7 @@ function baseState(): GameState {
     deck: [card('Q'), card('A'), card('5'), card('9')],
     discard: [card('7', 'spades')],
     turn: 0, phase: 'playing',
-    caboCallerId: null, turnsRemaining: null,
+    bateCallerId: null, turnsRemaining: null,
     pendingEffect: null,
     snapWindow: { openedAt: Date.now(), durationMs: 3000, discardedCardId: '7-spades' },
     log: [], createdAt: Date.now(), turnTimeLimitSec: 60, turnDeadlineAt: null, paused: false, pausedRemainingMs: null, roundTurnCount: 0, roundNumber: 1,
@@ -52,7 +52,7 @@ describe('snapCard - falha', () => {
     expect(() => snapCard(state, 'p2', 0)).toThrow('NO_DISCARD')
   })
 
-  it('snap fora da fase playing/cabo-called lança INVALID_PHASE', () => {
+  it('snap fora da fase playing/bate-called lança INVALID_PHASE', () => {
     const state = { ...baseState(), phase: 'effect-pending' as const }
     expect(() => snapCard(state, 'p2', 0)).toThrow('INVALID_PHASE')
   })

@@ -64,6 +64,6 @@ describe('startRound', () => {
     expect(state.turn).toBe(0)
     expect(state.pendingEffect).toBeNull()
     expect(state.snapWindow).toBeNull()
-    expect(state.caboCallerId).toBeNull()
+    expect(state.bateCallerId).toBeNull()
   })
 })

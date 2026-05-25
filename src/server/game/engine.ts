@@ -18,7 +18,7 @@ function nextDeadline(state: GameState): number | null {
 }
 
 function withFreshTurnTimer(state: GameState): GameState {
-  if (state.phase !== 'playing' && state.phase !== 'cabo-called') {
+  if (state.phase !== 'playing' && state.phase !== 'bate-called') {
     return { ...state, turnDeadlineAt: null, paused: false, pausedRemainingMs: null }
   }
   return { ...state, turnDeadlineAt: nextDeadline(state), paused: false, pausedRemainingMs: null }
@@ -29,7 +29,7 @@ function advanceTurn(state: GameState): GameState {
   let phase = state.phase
   let turnsRemaining = state.turnsRemaining
   let players = state.players
-  if (state.phase === 'cabo-called' && state.turnsRemaining !== null) {
+  if (state.phase === 'bate-called' && state.turnsRemaining !== null) {
     turnsRemaining = state.turnsRemaining - 1
     if (turnsRemaining <= 0) {
       players = state.players.map(p => ({ ...p, score: p.score + scoreHand(p.hand) }))
@@ -40,7 +40,7 @@ function advanceTurn(state: GameState): GameState {
 }
 
 export function drawFromDeck(state: GameState, playerId: string): { state: GameState; card: Card | null } {
-  if (state.phase !== 'playing' && state.phase !== 'cabo-called') {
+  if (state.phase !== 'playing' && state.phase !== 'bate-called') {
     throw new Error('INVALID_PHASE')
   }
   if (currentPlayerId(state) !== playerId) {
@@ -80,24 +80,24 @@ export function removePlayerMidGame(state: GameState, playerId: string): GameSta
     nextTurn = state.turn - 1
   }
   let phase = state.phase
-  let caboCallerId = state.caboCallerId
+  let bateCallerId = state.bateCallerId
   let turnsRemaining = state.turnsRemaining
   let pendingEffect = state.pendingEffect
-  if (caboCallerId === playerId) {
-    caboCallerId = null
+  if (bateCallerId === playerId) {
+    bateCallerId = null
     turnsRemaining = null
-    if (phase === 'cabo-called') phase = 'playing'
+    if (phase === 'bate-called') phase = 'playing'
   }
   if (pendingEffect && pendingEffect.playerId === playerId) {
     pendingEffect = null
-    if (phase === 'effect-pending') phase = caboCallerId !== null ? 'cabo-called' : 'playing'
+    if (phase === 'effect-pending') phase = bateCallerId !== null ? 'bate-called' : 'playing'
   }
   return {
     ...state,
     players,
     turn: nextTurn,
     phase,
-    caboCallerId,
+    bateCallerId,
     turnsRemaining,
     pendingEffect,
     log: [...state.log, { timestamp: Date.now(), type: 'leave', actorId: playerId }],
@@ -166,7 +166,7 @@ export function snapCard(state: GameState, playerId: string, handIndex: number):
   if (state.discard.length === 0) {
     throw new Error('NO_DISCARD')
   }
-  if (state.phase !== 'playing' && state.phase !== 'cabo-called') {
+  if (state.phase !== 'playing' && state.phase !== 'bate-called') {
     throw new Error('INVALID_PHASE')
   }
   const playerIdx = state.players.findIndex(p => p.id === playerId)
@@ -189,13 +189,13 @@ export function snapCard(state: GameState, playerId: string, handIndex: number):
       discard: [...state.discard, snappedCard],
       log: [...state.log, { timestamp: Date.now(), type: 'snap', actorId: playerId, payload: { cardId: snappedCard.id, rank: snappedCard.rank } }],
     }
-    if (newHand.length === 0 && state.caboCallerId === null) {
+    if (newHand.length === 0 && state.bateCallerId === null) {
       return {
         ...afterSnap,
-        caboCallerId: playerId,
-        phase: 'cabo-called',
+        bateCallerId: playerId,
+        phase: 'bate-called',
         turnsRemaining: state.players.length - 1,
-        log: [...afterSnap.log, { timestamp: Date.now(), type: 'cabo', actorId: playerId, payload: { reason: 'empty-hand' } }],
+        log: [...afterSnap.log, { timestamp: Date.now(), type: 'bate', actorId: playerId, payload: { reason: 'empty-hand' } }],
       }
     }
     return afterSnap
@@ -239,7 +239,7 @@ export function resolveEffect(state: GameState, playerId: string, input: EffectI
     throw new Error('INVALID_HAND_INDEX')
   }
   const targetCard = target.hand[input.targetCardIndex]!
-  const restoredPhase: GameState['phase'] = state.caboCallerId !== null ? 'cabo-called' : 'playing'
+  const restoredPhase: GameState['phase'] = state.bateCallerId !== null ? 'bate-called' : 'playing'
 
   if (state.pendingEffect.type === 'peek-own') {
     if (input.targetPlayerId !== playerId) throw new Error('INVALID_TARGET')
@@ -288,7 +288,7 @@ export function resolveEffect(state: GameState, playerId: string, input: EffectI
 export function skipEffect(state: GameState, playerId: string): GameState {
   if (!state.pendingEffect) throw new Error('NO_PENDING_EFFECT')
   if (state.pendingEffect.playerId !== playerId) throw new Error('NOT_YOUR_EFFECT')
-  const restoredPhase: GameState['phase'] = state.caboCallerId !== null ? 'cabo-called' : 'playing'
+  const restoredPhase: GameState['phase'] = state.bateCallerId !== null ? 'bate-called' : 'playing'
   const cleared: GameState = {
     ...state,
     pendingEffect: null,
@@ -303,7 +303,7 @@ function advanceTurnExported(state: GameState): GameState {
   let phase = state.phase
   let turnsRemaining = state.turnsRemaining
   let players = state.players
-  if (state.phase === 'cabo-called' && state.turnsRemaining !== null) {
+  if (state.phase === 'bate-called' && state.turnsRemaining !== null) {
     turnsRemaining = state.turnsRemaining - 1
     if (turnsRemaining <= 0) {
       players = state.players.map(p => ({ ...p, score: p.score + scoreHand(p.hand) }))
@@ -330,23 +330,23 @@ export function startTurnTimer(state: GameState): GameState {
   return withFreshTurnTimer(state)
 }
 
-export function callCabo(state: GameState, playerId: string): GameState {
-  if (state.caboCallerId !== null) throw new Error('CABO_ALREADY_CALLED')
+export function callBate(state: GameState, playerId: string): GameState {
+  if (state.bateCallerId !== null) throw new Error('BATE_ALREADY_CALLED')
   if (state.phase !== 'playing') throw new Error('INVALID_PHASE')
   if (currentPlayerId(state) !== playerId) throw new Error('NOT_YOUR_TURN')
-  const withCabo: GameState = {
+  const withBate: GameState = {
     ...state,
-    caboCallerId: playerId,
-    phase: 'cabo-called',
+    bateCallerId: playerId,
+    phase: 'bate-called',
     turnsRemaining: state.players.length - 1,
-    log: [...state.log, { timestamp: Date.now(), type: 'cabo', actorId: playerId }],
+    log: [...state.log, { timestamp: Date.now(), type: 'bate', actorId: playerId }],
   }
-  const nextTurn = (withCabo.turn + 1) % withCabo.players.length
-  return withFreshTurnTimer({ ...withCabo, turn: nextTurn, roundTurnCount: withCabo.roundTurnCount + 1 })
+  const nextTurn = (withBate.turn + 1) % withBate.players.length
+  return withFreshTurnTimer({ ...withBate, turn: nextTurn, roundTurnCount: withBate.roundTurnCount + 1 })
 }
 
 export function autoPlayExpiredTurn(state: GameState): { state: GameState; reason: 'auto-discard' | 'auto-draw-discard' | 'noop' } {
-  if (state.phase !== 'playing' && state.phase !== 'cabo-called') return { state, reason: 'noop' }
+  if (state.phase !== 'playing' && state.phase !== 'bate-called') return { state, reason: 'noop' }
   const playerId = state.players[state.turn]?.id
   if (!playerId) return { state, reason: 'noop' }
   if (state.deck.length === 0) return { state: endRoundEmptyDeck(state), reason: 'noop' }
@@ -368,10 +368,10 @@ export function finishRound(state: GameState): GameState {
     deck: [],
     discard: [],
     phase: matchEnd ? 'match-end' : 'waiting',
-    caboCallerId: null,
+    bateCallerId: null,
     turnsRemaining: null,
     pendingEffect: null,
     snapWindow: null,
-    log: [...state.log, { timestamp: Date.now(), type: 'round-end', actorId: state.caboCallerId ?? '' }],
+    log: [...state.log, { timestamp: Date.now(), type: 'round-end', actorId: state.bateCallerId ?? '' }],
   }
 }

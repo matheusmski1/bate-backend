@@ -15,7 +15,7 @@ export type GamePhase =
   | 'initial-peek'
   | 'playing'
   | 'effect-pending'
-  | 'cabo-called'
+  | 'bate-called'
   | 'round-end'
   | 'match-end'
 
@@ -45,7 +45,7 @@ export type Player = {
 
 export type GameActionType =
   | 'draw' | 'discard' | 'snap' | 'snap-fail'
-  | 'peek' | 'swap' | 'cabo' | 'round-end' | 'join' | 'leave'
+  | 'peek' | 'swap' | 'bate' | 'round-end' | 'join' | 'leave'
 
 export type GameAction = {
   timestamp: number
@@ -64,7 +64,7 @@ export type GameState = {
   discard: Card[]
   turn: number
   phase: GamePhase
-  caboCallerId: string | null
+  bateCallerId: string | null
   turnsRemaining: number | null
   pendingEffect: PendingEffect | null
   snapWindow: SnapWindow | null

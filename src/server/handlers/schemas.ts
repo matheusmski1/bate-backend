@@ -67,7 +67,7 @@ export const GameSnapSchema = z.object({
   handIndex,
 })
 
-export const GameCaboSchema = z.object({
+export const GameBateSchema = z.object({
   roomId,
   playerId,
 })

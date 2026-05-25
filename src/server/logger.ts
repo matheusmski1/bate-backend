@@ -26,7 +26,7 @@ export function snapshot(state: GameState | undefined | null) {
     deck: state.deck.length,
     discard: state.discard.length,
     logLen: state.log.length,
-    caboCaller: state.caboCallerId,
+    bateCaller: state.bateCallerId,
     pendingEffect: state.pendingEffect ? `${state.pendingEffect.type}:${state.pendingEffect.playerId}` : null,
     snapWindow: !!state.snapWindow,
     players: state.players.map(p => ({ id: p.id, name: p.name, hand: p.hand.length, score: p.score, socket: p.socketId ?? null })),

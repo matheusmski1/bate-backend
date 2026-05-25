@@ -11,7 +11,7 @@ const PER_EVENT_LIMITS: Record<string, Limit> = {
   'game:keep-or-discard': { capacity: 2, refillPerSec: 1 },
   'game:effect-target': { capacity: 4, refillPerSec: 2 },
   'game:skip-effect': { capacity: 2, refillPerSec: 1 },
-  'game:cabo': { capacity: 1, refillPerSec: 0.2 },
+  'game:bate': { capacity: 1, refillPerSec: 0.2 },
   'game:initial-peek-done': { capacity: 2, refillPerSec: 1 },
   'game:start': { capacity: 1, refillPerSec: 0.5 },
   'game:next-round': { capacity: 1, refillPerSec: 0.5 },

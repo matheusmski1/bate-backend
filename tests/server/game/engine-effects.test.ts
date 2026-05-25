@@ -14,7 +14,7 @@ function stateWithEffect(type: 'peek-own' | 'peek-other' | 'swap'): GameState {
     players: [p1, p2],
     deck: [], discard: [],
     turn: 0, phase: 'effect-pending',
-    caboCallerId: null, turnsRemaining: null,
+    bateCallerId: null, turnsRemaining: null,
     pendingEffect: { type, playerId: 'p1' },
     snapWindow: null,
     log: [], createdAt: Date.now(), turnTimeLimitSec: 60, turnDeadlineAt: null, paused: false, pausedRemainingMs: null, roundTurnCount: 0, roundNumber: 1,
