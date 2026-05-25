@@ -10,7 +10,7 @@ import {
 import { broadcastRoom } from './broadcast'
 import { log, snapshot } from '../logger'
 import {
-  parseOrAck,
+  parseAndAuth,
   GameStartSchema,
   GameInitialPeekDoneSchema,
   GameDrawSchema,
@@ -48,7 +48,7 @@ async function trace<T>(
 
 export function registerGameHandlers(io: SocketServer, socket: Socket) {
   socket.on('game:start', async (raw: unknown, ack: Ack) => {
-    const payload = parseOrAck(GameStartSchema, raw, ack)
+    const payload = parseAndAuth(GameStartSchema, raw, ack, socket)
     if (!payload) return
     const r = await trace('game:start', socket, { room: payload.roomId, player: payload.playerId }, async () => {
       return await lobby.withRoomLock(payload.roomId, async () => {
@@ -66,7 +66,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
   })
 
   socket.on('game:initial-peek-done', async (raw: unknown, ack?: Ack) => {
-    const payload = parseOrAck(GameInitialPeekDoneSchema, raw, ack)
+    const payload = parseAndAuth(GameInitialPeekDoneSchema, raw, ack, socket)
     if (!payload) return
     const r = await trace('game:initial-peek-done', socket, { room: payload.roomId, player: payload.playerId }, async () => {
       return await lobby.withRoomLock(payload.roomId, async () => {
@@ -88,7 +88,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
   })
 
   socket.on('game:draw', async (raw: unknown, ack: Ack) => {
-    const payload = parseOrAck(GameDrawSchema, raw, ack)
+    const payload = parseAndAuth(GameDrawSchema, raw, ack, socket)
     if (!payload) return
     const r = await trace('game:draw', socket, { room: payload.roomId, player: payload.playerId }, async () => {
       return await lobby.withRoomLock(payload.roomId, async () => {
@@ -110,7 +110,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
   })
 
   socket.on('game:keep-or-discard', async (raw: unknown, ack: Ack) => {
-    const payload = parseOrAck(GameKeepOrDiscardSchema, raw, ack)
+    const payload = parseAndAuth(GameKeepOrDiscardSchema, raw, ack, socket)
     if (!payload) return
     const r = await trace('game:keep-or-discard', socket, { room: payload.roomId, player: payload.playerId, action: payload.action, handIndex: payload.handIndex, useEffect: payload.useEffect }, async () => {
       return await lobby.withRoomLock(payload.roomId, async () => {
@@ -136,7 +136,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
   })
 
   socket.on('game:snap', async (raw: unknown, ack: Ack) => {
-    const payload = parseOrAck(GameSnapSchema, raw, ack)
+    const payload = parseAndAuth(GameSnapSchema, raw, ack, socket)
     if (!payload) return
     const r = await trace('game:snap', socket, { room: payload.roomId, player: payload.playerId, handIndex: payload.handIndex }, async () => {
       return await lobby.withRoomLock(payload.roomId, async () => {
@@ -154,7 +154,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
   })
 
   socket.on('game:skip-effect', async (raw: unknown, ack: Ack) => {
-    const payload = parseOrAck(GameSkipEffectSchema, raw, ack)
+    const payload = parseAndAuth(GameSkipEffectSchema, raw, ack, socket)
     if (!payload) return
     const r = await trace('game:skip-effect', socket, { room: payload.roomId, player: payload.playerId }, async () => {
       return await lobby.withRoomLock(payload.roomId, async () => {
@@ -169,7 +169,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
   })
 
   socket.on('game:effect-target', async (raw: unknown, ack: Ack) => {
-    const payload = parseOrAck(GameEffectTargetSchema, raw, ack)
+    const payload = parseAndAuth(GameEffectTargetSchema, raw, ack, socket)
     if (!payload) return
     const r = await trace('game:effect-target', socket, { room: payload.roomId, player: payload.playerId, target: payload.targetPlayerId, targetIdx: payload.targetCardIndex }, async () => {
       return await lobby.withRoomLock(payload.roomId, async () => {
@@ -185,7 +185,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
   })
 
   socket.on('game:cabo', async (raw: unknown, ack: Ack) => {
-    const payload = parseOrAck(GameCaboSchema, raw, ack)
+    const payload = parseAndAuth(GameCaboSchema, raw, ack, socket)
     if (!payload) return
     const r = await trace('game:cabo', socket, { room: payload.roomId, player: payload.playerId }, async () => {
       return await lobby.withRoomLock(payload.roomId, async () => {
@@ -201,7 +201,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
   })
 
   socket.on('game:next-round', async (raw: unknown, ack: Ack) => {
-    const payload = parseOrAck(GameNextRoundSchema, raw, ack)
+    const payload = parseAndAuth(GameNextRoundSchema, raw, ack, socket)
     if (!payload) return
     const r = await trace('game:next-round', socket, { room: payload.roomId, player: payload.playerId }, async () => {
       return await lobby.withRoomLock(payload.roomId, async () => {

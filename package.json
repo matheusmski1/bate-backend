@@ -15,11 +15,13 @@
   },
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
     "redis": "^5.12.1",
     "socket.io": "^4.8.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.18.13",
     "tsx": "^4.20.7",
     "typescript": "^6.0.3",

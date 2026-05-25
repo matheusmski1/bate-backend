@@ -9,10 +9,13 @@ import { lobby } from './lobby'
 import { consume as consumeRate, release as releaseRate } from './rate-limit'
 import { log } from './logger'
 import { audit, recent as recentAudit, summary as auditSummary } from './audit'
+import { signGuestToken, sessionCookie, readSessionCookie, verifyToken } from './auth'
 import { removePlayerMidGame, discardDrawnCard, skipEffect, autoPlayExpiredTurn } from './game/engine'
 
 const port = Number(process.env.PORT ?? 3001)
 const corsOrigin = process.env.CORS_ORIGIN ?? '*'
+const COOKIE_DOMAIN = process.env.COOKIE_DOMAIN
+const IS_PROD = process.env.NODE_ENV === 'production'
 const ALLOWED_ORIGINS: ReadonlyArray<string> = (() => {
   const fromEnv = (process.env.CORS_ORIGIN ?? '').split(',').map(s => s.trim()).filter(Boolean)
   const devDefaults = ['http://localhost:3000', 'http://127.0.0.1:3000']
@@ -28,7 +31,58 @@ const RECONNECT_GRACE_MS = 30_000
 const IDLE_ROOM_MS = 5 * 60 * 1000
 const CLEANUP_INTERVAL_MS = 30_000
 
+function applyCors(req: IncomingMessage, res: ServerResponse): boolean {
+  const origin = req.headers.origin
+  if (origin && isOriginAllowed(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin)
+    res.setHeader('Vary', 'Origin')
+    res.setHeader('Access-Control-Allow-Credentials', 'true')
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+    res.setHeader('Access-Control-Allow-Headers', 'content-type')
+  }
+  if (req.method === 'OPTIONS') {
+    res.writeHead(204)
+    res.end()
+    return true
+  }
+  return false
+}
+
 const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
+  if (applyCors(req, res)) return
+  if (req.url === '/auth/guest') {
+    const existing = readSessionCookie(req.headers.cookie)
+    if (existing) {
+      const claims = verifyToken(existing)
+      if (claims) {
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ playerId: claims.sub, kind: claims.kind, expiresAt: claims.exp * 1000 }))
+        return
+      }
+    }
+    const { token, playerId, expiresAt } = signGuestToken()
+    res.setHeader('Set-Cookie', sessionCookie(token, { secure: IS_PROD, domain: COOKIE_DOMAIN }))
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ playerId, kind: 'guest', expiresAt }))
+    return
+  }
+  if (req.url === '/auth/me') {
+    const token = readSessionCookie(req.headers.cookie)
+    if (!token) {
+      res.writeHead(401, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'NO_SESSION' }))
+      return
+    }
+    const claims = verifyToken(token)
+    if (!claims) {
+      res.writeHead(401, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'INVALID_SESSION' }))
+      return
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ playerId: claims.sub, kind: claims.kind, expiresAt: claims.exp * 1000 }))
+    return
+  }
   if (req.url === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({ ok: true, uptime: process.uptime(), pid: process.pid, redis: !!process.env.REDIS_URL }))
@@ -49,7 +103,14 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
 })
 
 const io = new SocketServer(httpServer, {
-  cors: { origin: corsOrigin, credentials: false },
+  cors: {
+    origin: (origin, cb) => {
+      if (corsOrigin === '*') return cb(null, true)
+      if (!origin) return cb(null, false)
+      cb(null, isOriginAllowed(origin))
+    },
+    credentials: true,
+  },
   pingInterval: 25_000,
   pingTimeout: 10_000,
   transports: ['websocket'],
@@ -77,6 +138,25 @@ io.use((socket, next) => {
     next(new Error('ORIGIN_NOT_ALLOWED'))
     return
   }
+  next()
+})
+
+io.use((socket, next) => {
+  const token = readSessionCookie(socket.handshake.headers.cookie)
+  if (!token) {
+    log.warn('socket', 'no session cookie', { socket: socket.id })
+    audit('auth_failure', socket.id, { reason: 'no_cookie' })
+    next(new Error('UNAUTHORIZED'))
+    return
+  }
+  const claims = verifyToken(token)
+  if (!claims) {
+    log.warn('socket', 'invalid session token', { socket: socket.id })
+    audit('auth_failure', socket.id, { reason: 'invalid_token' })
+    next(new Error('UNAUTHORIZED'))
+    return
+  }
+  socket.data.playerId = claims.sub
   next()
 })
 

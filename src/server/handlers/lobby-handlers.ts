@@ -3,7 +3,7 @@ import { lobby } from '../lobby'
 import { broadcastRoom } from './broadcast'
 import { pauseTimer, resumeTimer, removePlayerMidGame } from '../game/engine'
 import {
-  parseOrAck,
+  parseAndAuth,
   RoomCreateSchema,
   RoomJoinSchema,
   RoomLeaveSchema,
@@ -25,7 +25,7 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
   })
 
   socket.on('room:create', async (raw: unknown, ack: (res: { roomId?: string; error?: string }) => void) => {
-    const payload = parseOrAck(RoomCreateSchema, raw, ack)
+    const payload = parseAndAuth(RoomCreateSchema, raw, ack, socket)
     if (!payload) return
     try {
       const state = await lobby.createRoom(payload)
@@ -37,7 +37,7 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
   })
 
   socket.on('room:emote', async (raw: unknown, ack?: (res: { ok?: true; error?: string }) => void) => {
-    const payload = parseOrAck(RoomEmoteSchema, raw, ack)
+    const payload = parseAndAuth(RoomEmoteSchema, raw, ack, socket)
     if (!payload) return
     try {
       const now = Date.now()
@@ -59,7 +59,7 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
   })
 
   socket.on('room:pause', async (raw: unknown, ack?: (res: { ok?: true; error?: string }) => void) => {
-    const payload = parseOrAck(RoomPauseSchema, raw, ack)
+    const payload = parseAndAuth(RoomPauseSchema, raw, ack, socket)
     if (!payload) return
     try {
       const next = await lobby.withRoomLock(payload.roomId, async () => {
@@ -78,7 +78,7 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
   })
 
   socket.on('room:join', async (raw: unknown, ack: (res: { ok?: true; error?: string }) => void) => {
-    const payload = parseOrAck(RoomJoinSchema, raw, ack)
+    const payload = parseAndAuth(RoomJoinSchema, raw, ack, socket)
     if (!payload) return
     try {
       const state = await lobby.withRoomLock(payload.roomId, async () => {
@@ -101,7 +101,7 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
   })
 
   socket.on('room:leave', async (raw: unknown, ack: (res: { ok?: true; error?: string }) => void) => {
-    const payload = parseOrAck(RoomLeaveSchema, raw, ack)
+    const payload = parseAndAuth(RoomLeaveSchema, raw, ack, socket)
     if (!payload) return
     try {
       const result = await lobby.withRoomLock(payload.roomId, async () => {

@@ -1,3 +1,4 @@
+import type { Socket } from 'socket.io'
 import { z } from 'zod'
 import { audit } from '../audit'
 
@@ -116,4 +117,24 @@ export function parseOrAck<S extends z.ZodType>(
     return null
   }
   return r.data
+}
+
+export function parseAndAuth<S extends z.ZodType>(
+  schema: S,
+  raw: unknown,
+  ack: AnyAck,
+  socket: Socket,
+): (z.infer<S> & { playerId: string; hostId?: string }) | null {
+  const data = parseOrAck(schema, raw, ack, socket.id)
+  if (!data) return null
+  const cookieId = (socket.data as { playerId?: string } | undefined)?.playerId
+  if (!cookieId || typeof cookieId !== 'string') {
+    audit('auth_failure', socket.id, { reason: 'no_socket_identity' })
+    ack?.({ error: 'UNAUTHORIZED' })
+    return null
+  }
+  const obj = data as Record<string, unknown>
+  if ('playerId' in obj) obj.playerId = cookieId
+  if ('hostId' in obj) obj.hostId = cookieId
+  return data as z.infer<S> & { playerId: string; hostId?: string }
 }
