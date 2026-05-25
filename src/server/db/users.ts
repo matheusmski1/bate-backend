@@ -1,5 +1,7 @@
 import { AppDataSource } from './data-source'
 import { User } from './entities/User'
+import { Skin } from './entities/Skin'
+import { Deck } from './entities/Deck'
 import { UserSkin } from './entities/UserSkin'
 import { UserDeck } from './entities/UserDeck'
 
@@ -14,8 +16,12 @@ export async function ensureUser(playerId: string, displayName = ''): Promise<Us
   }
   const user = repo.create({ id: playerId, displayName, equippedSkin: 'default', equippedDeck: 'default' })
   await repo.save(user)
-  await grantSkin(playerId, 'default', 'default')
-  await grantDeck(playerId, 'default', 'default')
+  const [defaultSkins, defaultDecks] = await Promise.all([
+    AppDataSource.getRepository(Skin).find({ where: { unlockType: 'default' } }),
+    AppDataSource.getRepository(Deck).find({ where: { unlockType: 'default' } }),
+  ])
+  for (const skin of defaultSkins) await grantSkin(playerId, skin.id, 'default')
+  for (const deck of defaultDecks) await grantDeck(playerId, deck.id, 'default')
   return user
 }
 

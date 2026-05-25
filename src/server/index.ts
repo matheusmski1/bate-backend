@@ -12,8 +12,8 @@ import { audit, recent as recentAudit, summary as auditSummary } from './audit'
 import { signGuestToken, sessionCookie, readSessionCookie, verifyToken } from './auth'
 import { AppDataSource } from './db/data-source'
 import { ensureUser } from './db/users'
-import { seedDefaultSkins } from './db/seed-skins'
-import { seedDefaultDecks } from './db/seed-decks'
+import { seedDefaultSkins, backfillDefaultSkinsToAllUsers } from './db/seed-skins'
+import { seedDefaultDecks, backfillDefaultDecksToAllUsers } from './db/seed-decks'
 import { listSkinsForUser, equipSkinForUser } from './db/skins'
 import { listDecksForUser, equipDeckForUser } from './db/decks'
 import { removePlayerMidGame, discardDrawnCard, skipEffect, autoPlayExpiredTurn } from './game/engine'
@@ -219,14 +219,18 @@ if (process.env.DATABASE_URL) {
     try {
       const seed = await seedDefaultSkins()
       console.log(`[db] seed skins inserted=${seed.inserted} updated=${seed.updated}`)
+      const backfill = await backfillDefaultSkinsToAllUsers()
+      console.log(`[db] backfill skins granted=${backfill.granted}`)
     } catch (err) {
-      console.error('[db] seed skins failed:', err)
+      console.error('[db] seed/backfill skins failed:', err)
     }
     try {
       const seed = await seedDefaultDecks()
       console.log(`[db] seed decks inserted=${seed.inserted} updated=${seed.updated}`)
+      const backfill = await backfillDefaultDecksToAllUsers()
+      console.log(`[db] backfill decks granted=${backfill.granted}`)
     } catch (err) {
-      console.error('[db] seed decks failed:', err)
+      console.error('[db] seed/backfill decks failed:', err)
     }
   } catch (err) {
     console.error('[db] initialize failed:', err)
