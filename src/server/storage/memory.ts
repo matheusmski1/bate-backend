@@ -71,7 +71,12 @@ export class MemoryStorage implements Storage {
       this.rooms.delete(roomId)
       return undefined
     }
-    const next = { ...state, players }
+    let hostId = state.hostId
+    if (hostId === playerId) {
+      const nextHost = players.find(p => p.connected) ?? players[0]
+      if (nextHost) hostId = nextHost.id
+    }
+    const next = { ...state, players, hostId }
     this.rooms.set(roomId, next)
     return next
   }

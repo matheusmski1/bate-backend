@@ -89,7 +89,12 @@ export class RedisStorage implements Storage {
       await this.removeRoom(roomId)
       return undefined
     }
-    const next = { ...state, players }
+    let hostId = state.hostId
+    if (hostId === playerId) {
+      const nextHost = players.find(p => p.connected) ?? players[0]
+      if (nextHost) hostId = nextHost.id
+    }
+    const next = { ...state, players, hostId }
     await this.setRoom(next)
     return next
   }

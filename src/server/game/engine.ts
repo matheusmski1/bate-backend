@@ -92,11 +92,17 @@ export function removePlayerMidGame(state: GameState, playerId: string): GameSta
     pendingEffect = null
     if (phase === 'effect-pending') phase = bateCallerId !== null ? 'bate-called' : 'playing'
   }
+  let hostId = state.hostId
+  if (hostId === playerId) {
+    const nextHost = players.find(p => p.connected) ?? players[0]
+    if (nextHost) hostId = nextHost.id
+  }
   return {
     ...state,
     players,
     turn: nextTurn,
     phase,
+    hostId,
     bateCallerId,
     turnsRemaining,
     pendingEffect,
