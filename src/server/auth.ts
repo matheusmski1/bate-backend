@@ -57,10 +57,14 @@ export function sessionCookie(token: string, opts: { secure: boolean; domain?: s
     `${COOKIE_NAME}=${encodeURIComponent(token)}`,
     'Path=/',
     'HttpOnly',
-    'SameSite=Lax',
     `Max-Age=${TOKEN_TTL_SECONDS}`,
   ]
-  if (opts.secure) parts.push('Secure')
+  if (opts.secure) {
+    parts.push('SameSite=None')
+    parts.push('Secure')
+  } else {
+    parts.push('SameSite=Lax')
+  }
   if (opts.domain) parts.push(`Domain=${opts.domain}`)
   return parts.join('; ')
 }
