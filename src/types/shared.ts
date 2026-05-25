@@ -41,6 +41,7 @@ export type Player = {
   connected: boolean
   disconnectedAt: number | null
   revealedToSelf: string[]
+  skin: string
 }
 
 export type GameActionType =

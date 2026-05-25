@@ -74,6 +74,7 @@ export class RedisStorage implements Storage {
       connected: true,
       disconnectedAt: null,
       revealedToSelf: [],
+      skin: input.skin ?? 'default',
     }
     const next = { ...state, players: [...state.players, player] }
     await this.setRoom(next)

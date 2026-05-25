@@ -13,6 +13,7 @@ import { signGuestToken, sessionCookie, readSessionCookie, verifyToken } from '.
 import { AppDataSource } from './db/data-source'
 import { ensureUser } from './db/users'
 import { seedDefaultSkins } from './db/seed-skins'
+import { listSkinsForUser, equipSkinForUser } from './db/skins'
 import { removePlayerMidGame, discardDrawnCard, skipEffect, autoPlayExpiredTurn } from './game/engine'
 
 const port = Number(process.env.PORT ?? 3001)
@@ -77,6 +78,75 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
     const { token, playerId, expiresAt } = signGuestToken()
     res.setHeader('Set-Cookie', sessionCookie(token, { secure: IS_PROD, domain: COOKIE_DOMAIN }))
     void respond(playerId, 'guest', expiresAt)
+    return
+  }
+  if (req.url === '/me/skins' && req.method === 'GET') {
+    const token = readSessionCookie(req.headers.cookie)
+    const claims = token ? verifyToken(token) : null
+    if (!claims) {
+      res.writeHead(401, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'UNAUTHORIZED' }))
+      return
+    }
+    if (!AppDataSource.isInitialized) {
+      res.writeHead(503, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'DB_UNAVAILABLE' }))
+      return
+    }
+    listSkinsForUser(claims.sub)
+      .then(skins => {
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ skins }))
+      })
+      .catch(err => {
+        console.error('[me/skins] failed:', err)
+        res.writeHead(500, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ error: 'SERVER_ERROR' }))
+      })
+    return
+  }
+  if (req.url === '/me/equip-skin' && req.method === 'POST') {
+    const token = readSessionCookie(req.headers.cookie)
+    const claims = token ? verifyToken(token) : null
+    if (!claims) {
+      res.writeHead(401, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'UNAUTHORIZED' }))
+      return
+    }
+    if (!AppDataSource.isInitialized) {
+      res.writeHead(503, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ error: 'DB_UNAVAILABLE' }))
+      return
+    }
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => {
+      let skinId: string | null = null
+      try {
+        const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as { skinId?: unknown }
+        if (typeof body.skinId === 'string' && /^[a-z0-9_-]{1,64}$/.test(body.skinId)) skinId = body.skinId
+      } catch { /* invalid json */ }
+      if (!skinId) {
+        res.writeHead(400, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ error: 'INVALID_SKIN_ID' }))
+        return
+      }
+      equipSkinForUser(claims.sub, skinId)
+        .then(result => {
+          if (!result.ok) {
+            res.writeHead(403, { 'Content-Type': 'application/json' })
+            res.end(JSON.stringify({ error: result.error }))
+            return
+          }
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ ok: true, equippedSkin: skinId }))
+        })
+        .catch(err => {
+          console.error('[me/equip-skin] failed:', err)
+          res.writeHead(500, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ error: 'SERVER_ERROR' }))
+        })
+    })
     return
   }
   if (req.url === '/auth/me') {
