@@ -2,8 +2,10 @@ import { AppDataSource } from './data-source'
 import { User } from './entities/User'
 import { Skin } from './entities/Skin'
 import { Deck } from './entities/Deck'
+import { Arena } from './entities/Arena'
 import { UserSkin } from './entities/UserSkin'
 import { UserDeck } from './entities/UserDeck'
+import { UserArena } from './entities/UserArena'
 
 export async function ensureUser(playerId: string, displayName = ''): Promise<User> {
   const repo = AppDataSource.getRepository(User)
@@ -14,14 +16,16 @@ export async function ensureUser(playerId: string, displayName = ''): Promise<Us
     await repo.save(existing)
     return existing
   }
-  const user = repo.create({ id: playerId, displayName, equippedSkin: 'default', equippedDeck: 'default' })
+  const user = repo.create({ id: playerId, displayName, equippedSkin: 'default', equippedDeck: 'default', equippedArena: 'default' })
   await repo.save(user)
-  const [defaultSkins, defaultDecks] = await Promise.all([
+  const [defaultSkins, defaultDecks, defaultArenas] = await Promise.all([
     AppDataSource.getRepository(Skin).find({ where: { unlockType: 'default' } }),
     AppDataSource.getRepository(Deck).find({ where: { unlockType: 'default' } }),
+    AppDataSource.getRepository(Arena).find({ where: { unlockType: 'default' } }),
   ])
   for (const skin of defaultSkins) await grantSkin(playerId, skin.id, 'default')
   for (const deck of defaultDecks) await grantDeck(playerId, deck.id, 'default')
+  for (const arena of defaultArenas) await grantArena(playerId, arena.id, 'default')
   return user
 }
 
@@ -37,6 +41,13 @@ export async function grantSkin(userId: string, skinId: string, via: 'default' |
   const existing = await repo.findOne({ where: { userId, skinId } })
   if (existing) return
   await repo.insert({ userId, skinId, acquiredVia: via })
+}
+
+export async function grantArena(userId: string, arenaId: string, via: 'default' | 'earned' | 'purchased' = 'default'): Promise<void> {
+  const repo = AppDataSource.getRepository(UserArena)
+  const existing = await repo.findOne({ where: { userId, arenaId } })
+  if (existing) return
+  await repo.insert({ userId, arenaId, acquiredVia: via })
 }
 
 export async function getUserSkins(userId: string): Promise<UserSkin[]> {
