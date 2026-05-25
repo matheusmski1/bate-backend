@@ -10,6 +10,8 @@ import { consume as consumeRate, release as releaseRate } from './rate-limit'
 import { log } from './logger'
 import { audit, recent as recentAudit, summary as auditSummary } from './audit'
 import { signGuestToken, sessionCookie, readSessionCookie, verifyToken } from './auth'
+import { AppDataSource } from './db/data-source'
+import { ensureUser } from './db/users'
 import { removePlayerMidGame, discardDrawnCard, skipEffect, autoPlayExpiredTurn } from './game/engine'
 
 const port = Number(process.env.PORT ?? 3001)
@@ -51,19 +53,29 @@ function applyCors(req: IncomingMessage, res: ServerResponse): boolean {
 const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
   if (applyCors(req, res)) return
   if (req.url === '/auth/guest') {
+    const dbReady = AppDataSource.isInitialized
     const existing = readSessionCookie(req.headers.cookie)
+    const respond = async (playerId: string, kind: 'guest', expiresAt: number) => {
+      if (dbReady) {
+        try {
+          await ensureUser(playerId)
+        } catch (err) {
+          console.error('[auth/guest] ensureUser failed:', err)
+        }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ playerId, kind, expiresAt }))
+    }
     if (existing) {
       const claims = verifyToken(existing)
       if (claims) {
-        res.writeHead(200, { 'Content-Type': 'application/json' })
-        res.end(JSON.stringify({ playerId: claims.sub, kind: claims.kind, expiresAt: claims.exp * 1000 }))
+        void respond(claims.sub, claims.kind, claims.exp * 1000)
         return
       }
     }
     const { token, playerId, expiresAt } = signGuestToken()
     res.setHeader('Set-Cookie', sessionCookie(token, { secure: IS_PROD, domain: COOKIE_DOMAIN }))
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ playerId, kind: 'guest', expiresAt }))
+    void respond(playerId, 'guest', expiresAt)
     return
   }
   if (req.url === '/auth/me') {
@@ -115,6 +127,18 @@ const io = new SocketServer(httpServer, {
   pingTimeout: 10_000,
   transports: ['websocket'],
 })
+
+if (process.env.DATABASE_URL) {
+  try {
+    await AppDataSource.initialize()
+    console.log('[db] datasource initialized')
+  } catch (err) {
+    console.error('[db] initialize failed:', err)
+    if (IS_PROD) process.exit(1)
+  }
+} else {
+  console.log('[db] DATABASE_URL not set — running without DB (skins/profile disabled)')
+}
 
 if (process.env.REDIS_URL) {
   const pubClient = createClient({ url: process.env.REDIS_URL })
