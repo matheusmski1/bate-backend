@@ -26,6 +26,11 @@ export const RoomLeaveSchema = z.object({
   playerId,
 })
 
+export const RoomSpectateSchema = z.object({
+  roomId,
+  playerId,
+})
+
 export const RoomEmoteSchema = z.object({
   roomId,
   playerId,

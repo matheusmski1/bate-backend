@@ -17,7 +17,7 @@ function state(): GameState {
     turn: 0, phase: 'playing',
     bateCallerId: null, turnsRemaining: null,
     pendingEffect: null, snapWindow: null,
-    log: [], createdAt: Date.now(), turnTimeLimitSec: 60, turnDeadlineAt: null, paused: false, pausedRemainingMs: null, roundTurnCount: 0, roundNumber: 1,
+    log: [], createdAt: Date.now(), turnTimeLimitSec: 60, turnDeadlineAt: null, paused: false, pausedRemainingMs: null, roundTurnCount: 0, roundNumber: 1, spectators: [],
   }
 }
 

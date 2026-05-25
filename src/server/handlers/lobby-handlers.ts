@@ -20,7 +20,9 @@ import {
   RoomLeaveSchema,
   RoomEmoteSchema,
   RoomPauseSchema,
+  RoomSpectateSchema,
 } from './schemas'
+import { redactStateForPlayer } from '../game/redact'
 
 const EMOTE_COOLDOWN_MS = 2500
 const lastEmoteAt = new Map<string, number>()
@@ -116,6 +118,42 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
     }
   })
 
+  socket.on('room:spectate', async (raw: unknown, ack: (res: { ok?: true; error?: string }) => void) => {
+    const payload = parseAndAuth(RoomSpectateSchema, raw, ack, socket)
+    if (!payload) return
+    try {
+      const skin = await lookupSkin(payload.playerId)
+      const state = await lobby.withRoomLock(payload.roomId, async () => {
+        const room = await lobby.getRoom(payload.roomId)
+        if (!room) throw new Error('ROOM_NOT_FOUND')
+        if (room.players.some(p => p.id === payload.playerId)) throw new Error('ALREADY_PLAYER')
+        const spectators = room.spectators ?? []
+        const existing = spectators.find(s => s.id === payload.playerId)
+        let next
+        if (existing) {
+          existing.socketId = socket.id
+          existing.skin = skin
+          next = { ...room, spectators: [...spectators] }
+        } else {
+          next = {
+            ...room,
+            spectators: [...spectators, { id: payload.playerId, name: 'Espectador', socketId: socket.id, skin }],
+          }
+        }
+        await lobby.setRoom(next)
+        return next
+      })
+      socket.join(payload.roomId)
+      await lobby.bindSocket(socket.id, payload.roomId, payload.playerId)
+      ack({ ok: true })
+      socket.emit('room:state', { state: redactStateForPlayer(state, payload.playerId, true) })
+      io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
+      console.log(`[room:spectate] socket=${socket.id} player=${payload.playerId} room=${payload.roomId}`)
+    } catch (err) {
+      ack({ error: err instanceof Error ? err.message : 'UNKNOWN' })
+    }
+  })
+
   socket.on('room:leave', async (raw: unknown, ack: (res: { ok?: true; error?: string }) => void) => {
     const payload = parseAndAuth(RoomLeaveSchema, raw, ack, socket)
     if (!payload) return
@@ -123,6 +161,12 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
       const result = await lobby.withRoomLock(payload.roomId, async () => {
         const room = await lobby.getRoom(payload.roomId)
         if (!room) return null
+        const isSpectator = (room.spectators ?? []).some(s => s.id === payload.playerId)
+        if (isSpectator) {
+          const next = { ...room, spectators: (room.spectators ?? []).filter(s => s.id !== payload.playerId) }
+          await lobby.setRoom(next)
+          return next
+        }
         const inGame = room.phase !== 'waiting' && room.phase !== 'round-end' && room.phase !== 'match-end'
         if (inGame) {
           const adjusted = removePlayerMidGame(room, payload.playerId)

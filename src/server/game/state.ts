@@ -45,6 +45,7 @@ export function createEmptyRoom(input: CreateRoomInput): GameState {
     pausedRemainingMs: null,
     roundTurnCount: 0,
     roundNumber: 0,
+    spectators: [],
   }
 }
 

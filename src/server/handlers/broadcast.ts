@@ -10,5 +10,11 @@ export function broadcastRoom(io: SocketServer, state: GameState) {
     io.to(player.socketId).emit('room:state', { state: redacted })
     emitted++
   }
+  for (const spectator of state.spectators ?? []) {
+    if (!spectator.socketId) continue
+    const redacted = redactStateForPlayer(state, spectator.id, true)
+    io.to(spectator.socketId).emit('room:state', { state: redacted })
+    emitted++
+  }
   console.log(`[broadcast] room ${state.roomId} phase=${state.phase} emitted=${emitted}`)
 }

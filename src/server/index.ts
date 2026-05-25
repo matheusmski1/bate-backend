@@ -285,6 +285,13 @@ io.on('connection', socket => {
     await lobby.withRoomLock(entry.roomId, async () => {
       const room = await lobby.getRoom(entry.roomId)
       if (!room) return
+      const spectatorIdx = (room.spectators ?? []).findIndex(s => s.id === entry.playerId && s.socketId === socket.id)
+      if (spectatorIdx !== -1) {
+        const next = { ...room, spectators: (room.spectators ?? []).filter((_, i) => i !== spectatorIdx) }
+        await lobby.setRoom(next)
+        broadcastRoom(io, next)
+        return
+      }
       const player = room.players.find(p => p.id === entry.playerId)
       if (!player || player.socketId !== socket.id) return
       player.connected = false

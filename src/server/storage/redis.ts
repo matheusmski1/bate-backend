@@ -16,6 +16,7 @@ function summarize(state: GameState): RoomSummary {
     playerCount: state.players.length,
     maxPlayers: state.maxPlayers,
     phase: state.phase,
+    spectatorCount: state.spectators?.length ?? 0,
   }
 }
 
@@ -64,7 +65,7 @@ export class RedisStorage implements Storage {
       return next
     }
     if (state.players.length >= state.maxPlayers) throw new Error('ROOM_FULL')
-    if (state.phase !== 'waiting') throw new Error('GAME_IN_PROGRESS')
+    if (state.phase !== 'waiting' && state.phase !== 'round-end') throw new Error('GAME_IN_PROGRESS')
     const player: Player = {
       id: input.playerId,
       socketId: null,

@@ -18,6 +18,7 @@ const PER_EVENT_LIMITS: Record<string, Limit> = {
   'room:emote': { capacity: 2, refillPerSec: 0.5 },
   'room:pause': { capacity: 2, refillPerSec: 1 },
   'room:join': { capacity: 3, refillPerSec: 0.5 },
+  'room:spectate': { capacity: 3, refillPerSec: 0.5 },
   'room:create': { capacity: 2, refillPerSec: 0.2 },
   'room:leave': { capacity: 2, refillPerSec: 1 },
 }

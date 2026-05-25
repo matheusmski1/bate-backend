@@ -55,6 +55,13 @@ export type GameAction = {
   payload?: Record<string, unknown>
 }
 
+export type Spectator = {
+  id: string
+  name: string
+  socketId: string | null
+  skin: string
+}
+
 export type GameState = {
   roomId: string
   name: string
@@ -77,6 +84,7 @@ export type GameState = {
   pausedRemainingMs: number | null
   roundTurnCount: number
   roundNumber: number
+  spectators: Spectator[]
 }
 
 export type RedactedCard = { id: string; rank: Rank; suit: Suit | null } | { id: string; hidden: true }
@@ -94,4 +102,5 @@ export type RoomSummary = {
   playerCount: number
   maxPlayers: number
   phase: GamePhase
+  spectatorCount: number
 }
