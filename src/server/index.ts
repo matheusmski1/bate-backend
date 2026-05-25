@@ -76,7 +76,8 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
       }
     }
     const { token, playerId, expiresAt } = signGuestToken()
-    res.setHeader('Set-Cookie', sessionCookie(token, { secure: IS_PROD, domain: COOKIE_DOMAIN }))
+    const requestHost = (req.headers.host ?? '').split(':')[0]
+    res.setHeader('Set-Cookie', sessionCookie(token, { secure: IS_PROD, domain: COOKIE_DOMAIN, requestHost }))
     void respond(playerId, 'guest', expiresAt)
     return
   }

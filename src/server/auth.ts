@@ -52,7 +52,16 @@ export function parseCookies(header: string | undefined): Record<string, string>
   return out
 }
 
-export function sessionCookie(token: string, opts: { secure: boolean; domain?: string }): string {
+function domainApplies(reqHost: string | undefined, domain: string): boolean {
+  if (!reqHost) return false
+  const norm = domain.startsWith('.') ? domain.slice(1) : domain
+  return reqHost === norm || reqHost.endsWith(`.${norm}`)
+}
+
+export function sessionCookie(
+  token: string,
+  opts: { secure: boolean; domain?: string; requestHost?: string },
+): string {
   const parts = [
     `${COOKIE_NAME}=${encodeURIComponent(token)}`,
     'Path=/',
@@ -65,7 +74,9 @@ export function sessionCookie(token: string, opts: { secure: boolean; domain?: s
   } else {
     parts.push('SameSite=Lax')
   }
-  if (opts.domain) parts.push(`Domain=${opts.domain}`)
+  if (opts.domain && domainApplies(opts.requestHost, opts.domain)) {
+    parts.push(`Domain=${opts.domain}`)
+  }
   return parts.join('; ')
 }
 
