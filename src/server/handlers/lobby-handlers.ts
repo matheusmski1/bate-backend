@@ -62,7 +62,7 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
     if (!payload) return
     try {
       const [skin, deck, arena] = await Promise.all([lookupSkin(payload.hostId), lookupDeck(payload.hostId), lookupArena(payload.hostId)])
-      const state = await lobby.createRoom({ ...payload, skin, deck, arena })
+      const state = await lobby.createRoom({ ...payload, deck, arena })
       ack({ roomId: state.roomId })
       io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
     } catch (err) {
@@ -117,7 +117,7 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
     try {
       const [skin, deck, arena] = await Promise.all([lookupSkin(payload.playerId), lookupDeck(payload.playerId), lookupArena(payload.playerId)])
       const state = await lobby.withRoomLock(payload.roomId, async () => {
-        const next = await lobby.joinRoom(payload.roomId, { ...payload, skin, deck, arena })
+        const next = await lobby.joinRoom(payload.roomId, { ...payload, deck, arena })
         const player = next.players.find(p => p.id === payload.playerId)
         if (player) {
           player.socketId = socket.id
