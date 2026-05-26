@@ -12,9 +12,10 @@ export type CreateRoomInput = {
   turnTimeLimitSec?: number | null
   skin?: string
   deck?: string
+  arena?: string
 }
 
-export type JoinInput = { playerId: string; playerName: string; skin?: string; deck?: string }
+export type JoinInput = { playerId: string; playerName: string; skin?: string; deck?: string; arena?: string }
 
 export interface Storage {
   createRoom(input: CreateRoomInput): Promise<GameState>

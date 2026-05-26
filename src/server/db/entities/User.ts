@@ -14,6 +14,9 @@ export class User {
   @Column({ type: 'varchar', length: 64, default: 'default' })
   equippedDeck!: string
 
+  @Column({ type: 'varchar', length: 64, default: 'default' })
+  equippedArena!: string
+
   @Column({ type: 'varchar', length: 255, nullable: true })
   @Index({ unique: true, where: '"email" IS NOT NULL' })
   email!: string | null

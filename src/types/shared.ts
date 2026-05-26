@@ -44,6 +44,7 @@ export type Player = {
   revealedToSelf: string[]
   skin: string
   deck: string
+  arena: string
 }
 
 export type GameActionType =

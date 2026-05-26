@@ -27,7 +27,7 @@ describe('startRound', () => {
     const empty = createEmptyRoom({ roomId: 'r1', name: 'm', hostId: 'p1', hostName: 'a', maxPlayers: 2 })
     empty.players.push({
       id: 'p2', socketId: null, name: 'b', hand: [], score: 0,
-      connected: true, disconnectedAt: null, revealedToSelf: [], skin: 'default', deck: 'default',
+      connected: true, disconnectedAt: null, revealedToSelf: [], skin: 'default', deck: 'default', arena: 'default', arena: 'default', arena: 'default', arena: 'default',
     })
     const state = startRound(empty)
     expect(state.players[0]?.hand).toHaveLength(4)
@@ -38,7 +38,7 @@ describe('startRound', () => {
     const empty = createEmptyRoom({ roomId: 'r1', name: 'm', hostId: 'p1', hostName: 'a', maxPlayers: 2 })
     empty.players.push({
       id: 'p2', socketId: null, name: 'b', hand: [], score: 0,
-      connected: true, disconnectedAt: null, revealedToSelf: [], skin: 'default', deck: 'default',
+      connected: true, disconnectedAt: null, revealedToSelf: [], skin: 'default', deck: 'default', arena: 'default', arena: 'default', arena: 'default', arena: 'default',
     })
     const state = startRound(empty)
     expect(state.phase).toBe('initial-peek')
@@ -48,7 +48,7 @@ describe('startRound', () => {
     const empty = createEmptyRoom({ roomId: 'r1', name: 'm', hostId: 'p1', hostName: 'a', maxPlayers: 2 })
     empty.players.push({
       id: 'p2', socketId: null, name: 'b', hand: [], score: 0,
-      connected: true, disconnectedAt: null, revealedToSelf: [], skin: 'default', deck: 'default',
+      connected: true, disconnectedAt: null, revealedToSelf: [], skin: 'default', deck: 'default', arena: 'default', arena: 'default', arena: 'default', arena: 'default',
     })
     const state = startRound(empty)
     expect(state.deck.length).toBe(108 - 8)
@@ -58,7 +58,7 @@ describe('startRound', () => {
     const empty = createEmptyRoom({ roomId: 'r1', name: 'm', hostId: 'p1', hostName: 'a', maxPlayers: 2 })
     empty.players.push({
       id: 'p2', socketId: null, name: 'b', hand: [], score: 0,
-      connected: true, disconnectedAt: null, revealedToSelf: [], skin: 'default', deck: 'default',
+      connected: true, disconnectedAt: null, revealedToSelf: [], skin: 'default', deck: 'default', arena: 'default', arena: 'default', arena: 'default', arena: 'default',
     })
     const state = startRound(empty)
     expect(state.turn).toBe(0)

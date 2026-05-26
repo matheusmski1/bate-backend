@@ -5,6 +5,7 @@ import { pauseTimer, resumeTimer, removePlayerMidGame } from '../game/engine'
 import { AppDataSource } from '../db/data-source'
 import { getEquippedSkin } from '../db/skins'
 import { getEquippedDeck } from '../db/decks'
+import { getEquippedArena } from '../db/arenas'
 
 async function lookupSkin(playerId: string): Promise<string> {
   if (!AppDataSource.isInitialized) return 'default'
@@ -19,6 +20,15 @@ async function lookupDeck(playerId: string): Promise<string> {
   if (!AppDataSource.isInitialized) return 'default'
   try {
     return await getEquippedDeck(playerId)
+  } catch {
+    return 'default'
+  }
+}
+
+async function lookupArena(playerId: string): Promise<string> {
+  if (!AppDataSource.isInitialized) return 'default'
+  try {
+    return await getEquippedArena(playerId)
   } catch {
     return 'default'
   }
@@ -51,8 +61,8 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
     const payload = parseAndAuth(RoomCreateSchema, raw, ack, socket)
     if (!payload) return
     try {
-      const [skin, deck] = await Promise.all([lookupSkin(payload.hostId), lookupDeck(payload.hostId)])
-      const state = await lobby.createRoom({ ...payload, skin, deck })
+      const [skin, deck, arena] = await Promise.all([lookupSkin(payload.hostId), lookupDeck(payload.hostId), lookupArena(payload.hostId)])
+      const state = await lobby.createRoom({ ...payload, skin, deck, arena })
       ack({ roomId: state.roomId })
       io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
     } catch (err) {
@@ -105,14 +115,15 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
     const payload = parseAndAuth(RoomJoinSchema, raw, ack, socket)
     if (!payload) return
     try {
-      const [skin, deck] = await Promise.all([lookupSkin(payload.playerId), lookupDeck(payload.playerId)])
+      const [skin, deck, arena] = await Promise.all([lookupSkin(payload.playerId), lookupDeck(payload.playerId), lookupArena(payload.playerId)])
       const state = await lobby.withRoomLock(payload.roomId, async () => {
-        const next = await lobby.joinRoom(payload.roomId, { ...payload, skin, deck })
+        const next = await lobby.joinRoom(payload.roomId, { ...payload, skin, deck, arena })
         const player = next.players.find(p => p.id === payload.playerId)
         if (player) {
           player.socketId = socket.id
           player.skin = skin
           player.deck = deck
+          player.arena = arena
         }
         await lobby.setRoom(next)
         return next
