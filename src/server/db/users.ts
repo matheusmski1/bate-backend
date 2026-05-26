@@ -10,23 +10,25 @@ import { UserArena } from './entities/UserArena'
 export async function ensureUser(playerId: string, displayName = ''): Promise<User> {
   const repo = AppDataSource.getRepository(User)
   const existing = await repo.findOne({ where: { id: playerId } })
+  const user = existing ?? repo.create({ id: playerId, displayName, equippedSkin: 'default', equippedDeck: 'default', equippedArena: 'default' })
   if (existing) {
     existing.lastSeenAt = new Date()
     if (displayName && displayName !== existing.displayName) existing.displayName = displayName
-    await repo.save(existing)
-    return existing
   }
-  const user = repo.create({ id: playerId, displayName, equippedSkin: 'default', equippedDeck: 'default', equippedArena: 'default' })
   await repo.save(user)
+  await grantAllDefaultsToUser(playerId)
+  return user
+}
+
+async function grantAllDefaultsToUser(userId: string): Promise<void> {
   const [defaultSkins, defaultDecks, defaultArenas] = await Promise.all([
     AppDataSource.getRepository(Skin).find({ where: { unlockType: 'default' } }),
     AppDataSource.getRepository(Deck).find({ where: { unlockType: 'default' } }),
     AppDataSource.getRepository(Arena).find({ where: { unlockType: 'default' } }),
   ])
-  for (const skin of defaultSkins) await grantSkin(playerId, skin.id, 'default')
-  for (const deck of defaultDecks) await grantDeck(playerId, deck.id, 'default')
-  for (const arena of defaultArenas) await grantArena(playerId, arena.id, 'default')
-  return user
+  for (const skin of defaultSkins) await grantSkin(userId, skin.id, 'default')
+  for (const deck of defaultDecks) await grantDeck(userId, deck.id, 'default')
+  for (const arena of defaultArenas) await grantArena(userId, arena.id, 'default')
 }
 
 export async function grantDeck(userId: string, deckId: string, via: 'default' | 'earned' | 'purchased' = 'default'): Promise<void> {
