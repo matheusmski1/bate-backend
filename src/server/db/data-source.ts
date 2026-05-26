@@ -1,8 +1,6 @@
 import 'reflect-metadata'
 import { DataSource } from 'typeorm'
 import { User } from './entities/User'
-import { Skin } from './entities/Skin'
-import { UserSkin } from './entities/UserSkin'
 import { Deck } from './entities/Deck'
 import { UserDeck } from './entities/UserDeck'
 import { Arena } from './entities/Arena'
@@ -28,7 +26,7 @@ export const AppDataSource = new DataSource({
   url: url ?? '',
   synchronize: false,
   logging: process.env.DATABASE_LOG === 'true',
-  entities: [User, Skin, UserSkin, Deck, UserDeck, Arena, UserArena],
+  entities: [User, Deck, UserDeck, Arena, UserArena],
   migrations: ['src/server/db/migrations/*.ts'],
   migrationsTableName: 'typeorm_migrations',
   ssl: useSSL ? { rejectUnauthorized: false } : false,
