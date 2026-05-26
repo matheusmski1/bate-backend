@@ -10,13 +10,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 11
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'pnpm'
+      - name: Enable pnpm via corepack
+        run: |
+          corepack enable
+          corepack prepare pnpm@11 --activate
+          pnpm --version
       - run: pnpm install --frozen-lockfile
       - name: Typecheck
         run: npx tsc --noEmit
