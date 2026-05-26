@@ -22,7 +22,6 @@ export function createEmptyRoom(input: CreateRoomInput): GameState {
     connected: true,
     disconnectedAt: null,
     revealedToSelf: [],
-    skin: 'default',
     deck: input.deck ?? 'default',
     arena: input.arena ?? 'default',
   }

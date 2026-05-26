@@ -75,7 +75,6 @@ export class RedisStorage implements Storage {
       connected: true,
       disconnectedAt: null,
       revealedToSelf: [],
-      skin: 'default',
       deck: input.deck ?? 'default',
       arena: input.arena ?? 'default',
     }

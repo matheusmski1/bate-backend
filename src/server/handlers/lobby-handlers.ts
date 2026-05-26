@@ -145,12 +145,11 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
         let next
         if (existing) {
           existing.socketId = socket.id
-          existing.skin = 'default'
           next = { ...room, spectators: [...spectators] }
         } else {
           next = {
             ...room,
-            spectators: [...spectators, { id: payload.playerId, name: 'Espectador', socketId: socket.id, skin: 'default' }],
+            spectators: [...spectators, { id: payload.playerId, name: 'Espectador', socketId: socket.id }],
           }
         }
         await lobby.setRoom(next)

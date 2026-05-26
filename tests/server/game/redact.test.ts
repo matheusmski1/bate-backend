@@ -7,8 +7,8 @@ function card(rank: Card['rank'], suit: Card['suit'] = 'hearts', id = `${rank}-$
 }
 
 function state(): GameState {
-  const p1: Player = { id: 'p1', socketId: null, name: 'A', hand: [card('5'), card('K'), card('3'), card('9')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: ['5-hearts', 'K-hearts'], skin: 'default', deck: 'default', arena: 'default', arena: 'default', arena: 'default', arena: 'default' }
-  const p2: Player = { id: 'p2', socketId: null, name: 'B', hand: [card('A', 'spades'), card('7'), card('Q'), card('2')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [], skin: 'default', deck: 'default', arena: 'default', arena: 'default', arena: 'default', arena: 'default' }
+  const p1: Player = { id: 'p1', socketId: null, name: 'A', hand: [card('5'), card('K'), card('3'), card('9')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: ['5-hearts', 'K-hearts'], deck: 'default', arena: 'default', arena: 'default', arena: 'default', arena: 'default' }
+  const p2: Player = { id: 'p2', socketId: null, name: 'B', hand: [card('A', 'spades'), card('7'), card('Q'), card('2')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default', arena: 'default', arena: 'default', arena: 'default' }
   return {
     roomId: 'r1', name: 'm', hostId: 'p1', maxPlayers: 2,
     players: [p1, p2],
