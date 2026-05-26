@@ -3,18 +3,11 @@ import { lobby } from '../lobby'
 import { broadcastRoom } from './broadcast'
 import { pauseTimer, resumeTimer, removePlayerMidGame } from '../game/engine'
 import { AppDataSource } from '../db/data-source'
-import { getEquippedSkin } from '../db/skins'
+
 import { getEquippedDeck } from '../db/decks'
 import { getEquippedArena } from '../db/arenas'
 
-async function lookupSkin(playerId: string): Promise<string> {
-  if (!AppDataSource.isInitialized) return 'default'
-  try {
-    return await getEquippedSkin(playerId)
-  } catch {
-    return 'default'
-  }
-}
+
 
 async function lookupDeck(playerId: string): Promise<string> {
   if (!AppDataSource.isInitialized) return 'default'
@@ -61,7 +54,7 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
     const payload = parseAndAuth(RoomCreateSchema, raw, ack, socket)
     if (!payload) return
     try {
-      const [skin, deck, arena] = await Promise.all([lookupSkin(payload.hostId), lookupDeck(payload.hostId), lookupArena(payload.hostId)])
+      const [deck, arena] = await Promise.all([lookupDeck(payload.hostId), lookupArena(payload.hostId)])
       const state = await lobby.createRoom({ ...payload, deck, arena })
       ack({ roomId: state.roomId })
       io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
@@ -115,13 +108,12 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
     const payload = parseAndAuth(RoomJoinSchema, raw, ack, socket)
     if (!payload) return
     try {
-      const [skin, deck, arena] = await Promise.all([lookupSkin(payload.playerId), lookupDeck(payload.playerId), lookupArena(payload.playerId)])
+      const [deck, arena] = await Promise.all([lookupDeck(payload.playerId), lookupArena(payload.playerId)])
       const state = await lobby.withRoomLock(payload.roomId, async () => {
         const next = await lobby.joinRoom(payload.roomId, { ...payload, deck, arena })
         const player = next.players.find(p => p.id === payload.playerId)
         if (player) {
           player.socketId = socket.id
-          player.skin = skin
           player.deck = deck
           player.arena = arena
         }
@@ -144,7 +136,6 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
     const payload = parseAndAuth(RoomSpectateSchema, raw, ack, socket)
     if (!payload) return
     try {
-      const skin = await lookupSkin(payload.playerId)
       const state = await lobby.withRoomLock(payload.roomId, async () => {
         const room = await lobby.getRoom(payload.roomId)
         if (!room) throw new Error('ROOM_NOT_FOUND')
@@ -154,12 +145,12 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
         let next
         if (existing) {
           existing.socketId = socket.id
-          existing.skin = skin
+          existing.skin = 'default'
           next = { ...room, spectators: [...spectators] }
         } else {
           next = {
             ...room,
-            spectators: [...spectators, { id: payload.playerId, name: 'Espectador', socketId: socket.id, skin }],
+            spectators: [...spectators, { id: payload.playerId, name: 'Espectador', socketId: socket.id, skin: 'default' }],
           }
         }
         await lobby.setRoom(next)
