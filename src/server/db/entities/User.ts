@@ -9,9 +9,6 @@ export class User {
   displayName!: string
 
   @Column({ type: 'varchar', length: 64, default: 'default' })
-  equippedSkin!: string
-
-  @Column({ type: 'varchar', length: 64, default: 'default' })
   equippedDeck!: string
 
   @Column({ type: 'varchar', length: 64, default: 'default' })
