@@ -1,6 +1,6 @@
 # bate-backend
 
-Servidor Node.js + Socket.io pro **Bate** — jogo de cartas multiplayer brasileiro de memorização e dedução, releitura da família clássica "Golf" (domínio público) e de jogos como Rat-a-Tat Cat (Gamewright, 1995). Identidade visual, mascote Batinho, nomes de ações e sistema de pontuação são originais.
+Servidor Node.js + Socket.io do **Batinho** — produto online multiplayer baseado no jogo **Bate** (releitura brasileira da família "Golf"/Cabo, com inspiração em Rat-a-Tat Cat — Gamewright, 1995). Identidade visual, mascote (esquilinho chibi singular), nomes de ações e sistema de pontuação são originais.
 
 Frontend separado: https://github.com/matheusmski1/bate-frontend
 
