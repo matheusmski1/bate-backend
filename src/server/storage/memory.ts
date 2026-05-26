@@ -57,7 +57,7 @@ export class MemoryStorage implements Storage {
       connected: true,
       disconnectedAt: null,
       revealedToSelf: [],
-      skin: input.skin ?? 'default',
+      skin: 'default',
       deck: input.deck ?? 'default',
       arena: input.arena ?? 'default',
     }
