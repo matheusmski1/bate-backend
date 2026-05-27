@@ -7,7 +7,7 @@ function card(rank: Card['rank'], suit: Card['suit'] = 'hearts'): Card {
 }
 
 function player(id: string, score: number): Player {
-  return { id, socketId: null, name: id, hand: [], score, connected: true, disconnectedAt: null, revealedToSelf: [], skin: 'default', deck: 'default', arena: 'default', arena: 'default', arena: 'default', arena: 'default' }
+  return { id, socketId: null, name: id, hand: [], score, connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default', arena: 'default', arena: 'default', arena: 'default' }
 }
 
 describe('scoreHand', () => {

@@ -42,7 +42,6 @@ export type Player = {
   connected: boolean
   disconnectedAt: number | null
   revealedToSelf: string[]
-  skin: string
   deck: string
   arena: string
 }
@@ -62,7 +61,6 @@ export type Spectator = {
   id: string
   name: string
   socketId: string | null
-  skin: string
 }
 
 export type GameState = {

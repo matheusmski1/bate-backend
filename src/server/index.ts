@@ -12,10 +12,8 @@ import { audit, recent as recentAudit, summary as auditSummary } from './audit'
 import { signGuestToken, sessionCookie, readSessionCookie, verifyToken } from './auth'
 import { AppDataSource } from './db/data-source'
 import { ensureUser } from './db/users'
-import { seedDefaultSkins, backfillDefaultSkinsToAllUsers } from './db/seed-skins'
 import { seedDefaultDecks, backfillDefaultDecksToAllUsers } from './db/seed-decks'
 import { seedDefaultArenas, backfillDefaultArenasToAllUsers } from './db/seed-arenas'
-import { listSkinsForUser, equipSkinForUser } from './db/skins'
 import { listDecksForUser, equipDeckForUser } from './db/decks'
 import { listArenasForUser, equipArenaForUser } from './db/arenas'
 import { removePlayerMidGame, discardDrawnCard, skipEffect, autoPlayExpiredTurn } from './game/engine'
@@ -97,19 +95,6 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
     void respond(playerId, 'guest', expiresAt, { 'Set-Cookie': setCookie })
     return
   }
-  if (req.url === '/me/skins' && req.method === 'GET') {
-    const token = readSessionCookie(req.headers.cookie)
-    const claims = token ? verifyToken(token) : null
-    if (!claims) { sendJson(req, res, 401, { error: 'UNAUTHORIZED' }); return }
-    if (!AppDataSource.isInitialized) { sendJson(req, res, 503, { error: 'DB_UNAVAILABLE' }); return }
-    listSkinsForUser(claims.sub)
-      .then(skins => sendJson(req, res, 200, { skins }))
-      .catch(err => {
-        console.error('[me/skins] failed:', err)
-        sendJson(req, res, 500, { error: 'SERVER_ERROR' })
-      })
-    return
-  }
   if (req.url === '/me/decks' && req.method === 'GET') {
     const token = readSessionCookie(req.headers.cookie)
     const claims = token ? verifyToken(token) : null
@@ -188,32 +173,6 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
     })
     return
   }
-  if (req.url === '/me/equip-skin' && req.method === 'POST') {
-    const token = readSessionCookie(req.headers.cookie)
-    const claims = token ? verifyToken(token) : null
-    if (!claims) { sendJson(req, res, 401, { error: 'UNAUTHORIZED' }); return }
-    if (!AppDataSource.isInitialized) { sendJson(req, res, 503, { error: 'DB_UNAVAILABLE' }); return }
-    const chunks: Buffer[] = []
-    req.on('data', (c: Buffer) => chunks.push(c))
-    req.on('end', () => {
-      let skinId: string | null = null
-      try {
-        const body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}') as { skinId?: unknown }
-        if (typeof body.skinId === 'string' && /^[a-z0-9_-]{1,64}$/.test(body.skinId)) skinId = body.skinId
-      } catch { /* invalid json */ }
-      if (!skinId) { sendJson(req, res, 400, { error: 'INVALID_SKIN_ID' }); return }
-      equipSkinForUser(claims.sub, skinId)
-        .then(result => {
-          if (!result.ok) { sendJson(req, res, 403, { error: result.error }); return }
-          sendJson(req, res, 200, { ok: true, equippedSkin: skinId })
-        })
-        .catch(err => {
-          console.error('[me/equip-skin] failed:', err)
-          sendJson(req, res, 500, { error: 'SERVER_ERROR' })
-        })
-    })
-    return
-  }
   if (req.url === '/auth/me') {
     const token = readSessionCookie(req.headers.cookie)
     if (!token) { sendJson(req, res, 401, { error: 'NO_SESSION' }); return }
@@ -258,14 +217,6 @@ if (process.env.DATABASE_URL) {
     await AppDataSource.initialize()
     console.log('[db] datasource initialized')
     try {
-      const seed = await seedDefaultSkins()
-      console.log(`[db] seed skins inserted=${seed.inserted} updated=${seed.updated}`)
-      const backfill = await backfillDefaultSkinsToAllUsers()
-      console.log(`[db] backfill skins granted=${backfill.granted}`)
-    } catch (err) {
-      console.error('[db] seed/backfill skins failed:', err)
-    }
-    try {
       const seed = await seedDefaultDecks()
       console.log(`[db] seed decks inserted=${seed.inserted} updated=${seed.updated}`)
       const backfill = await backfillDefaultDecksToAllUsers()
@@ -286,7 +237,7 @@ if (process.env.DATABASE_URL) {
     if (IS_PROD) process.exit(1)
   }
 } else {
-  console.log('[db] DATABASE_URL not set — running without DB (skins/profile disabled)')
+  console.log('[db] DATABASE_URL not set — running without DB (profile features disabled)')
 }
 
 if (process.env.REDIS_URL) {
