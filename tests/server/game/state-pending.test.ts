@@ -5,7 +5,7 @@ import type { Player } from '@/types/shared'
 function mkPlayer(id: string, name: string): Player {
   return {
     id, socketId: null, name, hand: [], score: 0,
-    connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default',
+    connected: true, disconnectedAt: null, revealedToSelf: [], skin: 'default', deck: 'default', arena: 'default',
   }
 }
 
