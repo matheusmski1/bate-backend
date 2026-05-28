@@ -69,6 +69,7 @@ export type GameState = {
   hostId: string
   maxPlayers: 2 | 3 | 4
   players: Player[]
+  pendingJoins: Player[]
   deck: Card[]
   discard: Card[]
   turn: number
@@ -104,4 +105,5 @@ export type RoomSummary = {
   maxPlayers: number
   phase: GamePhase
   spectatorCount: number
+  pendingJoinCount: number
 }
