@@ -31,6 +31,7 @@ export function createEmptyRoom(input: CreateRoomInput): GameState {
     hostId: input.hostId,
     maxPlayers: input.maxPlayers,
     players: [host],
+    pendingJoins: [],
     deck: [],
     discard: [],
     turn: 0,
