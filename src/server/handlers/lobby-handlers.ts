@@ -186,6 +186,17 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
       const result = await lobby.withRoomLock(payload.roomId, async () => {
         const room = await lobby.getRoom(payload.roomId)
         if (!room) return null
+        const isPending = (room.pendingJoins ?? []).some(p => p.id === payload.playerId)
+        if (isPending) {
+          const spectators = (room.spectators ?? []).filter(s => s.id !== payload.playerId)
+          const next = {
+            ...room,
+            pendingJoins: room.pendingJoins.filter(p => p.id !== payload.playerId),
+            spectators,
+          }
+          await lobby.setRoom(next)
+          return next
+        }
         const isSpectator = (room.spectators ?? []).some(s => s.id === payload.playerId)
         if (isSpectator) {
           const next = { ...room, spectators: (room.spectators ?? []).filter(s => s.id !== payload.playerId) }
