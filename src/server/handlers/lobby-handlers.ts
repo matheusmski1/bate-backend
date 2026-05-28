@@ -104,27 +104,40 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
     }
   })
 
-  socket.on('room:join', async (raw: unknown, ack: (res: { ok?: true; error?: string }) => void) => {
+  socket.on('room:join', async (raw: unknown, ack: (res: { ok?: true; error?: string; queued?: boolean }) => void) => {
     const payload = parseAndAuth(RoomJoinSchema, raw, ack, socket)
     if (!payload) return
     try {
       const [deck, arena] = await Promise.all([lookupDeck(payload.playerId), lookupArena(payload.playerId)])
-      const state = await lobby.withRoomLock(payload.roomId, async () => {
+      const result = await lobby.withRoomLock(payload.roomId, async () => {
         const next = await lobby.joinRoom(payload.roomId, { ...payload, deck, arena })
-        const player = next.players.find(p => p.id === payload.playerId)
-        if (player) {
-          player.socketId = socket.id
-          player.deck = deck
-          player.arena = arena
+        const queued = next.pendingJoins.some(p => p.id === payload.playerId)
+        const target = queued
+          ? next.pendingJoins.find(p => p.id === payload.playerId)
+          : next.players.find(p => p.id === payload.playerId)
+        if (target) {
+          target.socketId = socket.id
+          target.deck = deck
+          target.arena = arena
         }
-        await lobby.setRoom(next)
-        return next
+        let finalState = next
+        if (queued) {
+          const spectators = next.spectators ?? []
+          if (!spectators.some(s => s.id === payload.playerId)) {
+            finalState = {
+              ...next,
+              spectators: [...spectators, { id: payload.playerId, name: payload.playerName, socketId: socket.id }],
+            }
+          }
+        }
+        await lobby.setRoom(finalState)
+        return { state: finalState, queued }
       })
       socket.join(payload.roomId)
       await lobby.bindSocket(socket.id, payload.roomId, payload.playerId)
-      console.log(`[room:join] socket=${socket.id} player=${payload.playerId} room=${payload.roomId} totalPlayers=${state.players.length}`)
-      ack({ ok: true })
-      broadcastRoom(io, state)
+      console.log(`[room:join] socket=${socket.id} player=${payload.playerId} room=${payload.roomId} queued=${result.queued} totalPlayers=${result.state.players.length} totalPending=${result.state.pendingJoins.length}`)
+      ack(result.queued ? { ok: true, queued: true } : { ok: true })
+      broadcastRoom(io, result.state)
       io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
     } catch (err) {
       console.log(`[room:join] ERROR ${err instanceof Error ? err.message : 'UNKNOWN'} for player=${payload.playerId} room=${payload.roomId}`)
