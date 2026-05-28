@@ -16,6 +16,7 @@ function summarize(state: GameState): RoomSummary {
     maxPlayers: state.maxPlayers,
     phase: state.phase,
     spectatorCount: state.spectators?.length ?? 0,
+    pendingJoinCount: state.pendingJoins?.length ?? 0,
   }
 }
 
@@ -46,8 +47,10 @@ export class MemoryStorage implements Storage {
       this.rooms.set(roomId, next)
       return next
     }
-    if (state.players.length >= state.maxPlayers) throw new Error('ROOM_FULL')
-    if (state.phase !== 'waiting' && state.phase !== 'round-end') throw new Error('GAME_IN_PROGRESS')
+    const existingPending = state.pendingJoins.find(p => p.id === input.playerId)
+    if (existingPending) {
+      return state
+    }
     const player: Player = {
       id: input.playerId,
       socketId: null,
@@ -60,6 +63,13 @@ export class MemoryStorage implements Storage {
       deck: input.deck ?? 'default',
       arena: input.arena ?? 'default',
     }
+    const gameInProgress = state.phase !== 'waiting' && state.phase !== 'round-end'
+    if (gameInProgress) {
+      const next = { ...state, pendingJoins: [...state.pendingJoins, player] }
+      this.rooms.set(roomId, next)
+      return next
+    }
+    if (state.players.length >= state.maxPlayers) throw new Error('ROOM_FULL')
     const next = { ...state, players: [...state.players, player] }
     this.rooms.set(roomId, next)
     return next

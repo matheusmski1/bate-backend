@@ -18,7 +18,7 @@ function baseState(): GameState {
     bateCallerId: null, turnsRemaining: null,
     pendingEffect: null,
     snapWindow: { openedAt: Date.now(), durationMs: 3000, discardedCardId: '7-spades' },
-    log: [], createdAt: Date.now(), turnTimeLimitSec: 60, turnDeadlineAt: null, paused: false, pausedRemainingMs: null, roundTurnCount: 0, roundNumber: 1, spectators: [],
+    log: [], createdAt: Date.now(), turnTimeLimitSec: 60, turnDeadlineAt: null, paused: false, pausedRemainingMs: null, roundTurnCount: 0, roundNumber: 1, spectators: [], pendingJoins: [],
   }
 }
 
