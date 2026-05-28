@@ -5,7 +5,7 @@ import type { Player } from '@/types/shared'
 function mkPlayer(id: string, name: string): Player {
   return {
     id, socketId: null, name, hand: [], score: 0,
-    connected: true, disconnectedAt: null, revealedToSelf: [], skin: 'default', deck: 'default', arena: 'default',
+    connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default',
   }
 }
 
@@ -53,8 +53,8 @@ describe('startRound — promoção de pendingJoins', () => {
     empty.players.push(mkPlayer('p2', 'b'))
     empty.pendingJoins.push(mkPlayer('p3', 'c'))
     empty.spectators = [
-      { id: 'p3', name: 'c', socketId: 's3', skin: 'default' },
-      { id: 'p99', name: 'real-watcher', socketId: 's99', skin: 'default' },
+      { id: 'p3', name: 'c', socketId: 's3' },
+      { id: 'p99', name: 'real-watcher', socketId: 's99' },
     ]
     const state = startRound(empty)
     expect(state.spectators.map(s => s.id)).toEqual(['p99'])

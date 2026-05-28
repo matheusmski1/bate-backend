@@ -78,7 +78,7 @@ describe('lobby registry', () => {
     s!.phase = 'playing'
     s!.pendingJoins.push({
       id: 'p2', socketId: null, name: 'b', hand: [], score: 0,
-      connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default', skin: 'default',
+      connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default',
     })
     await lobby.setRoom(s!)
     const after = await lobby.joinRoom(room.roomId, { playerId: 'p2', playerName: 'b' })
