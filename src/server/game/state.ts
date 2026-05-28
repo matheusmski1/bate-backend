@@ -70,10 +70,13 @@ export function startRound(state: GameState): GameState {
     return { ...p, hand, score: p.score, revealedToSelf: initiallyRevealed }
   })
   const lowestIdx = players.reduce((bestIdx, p, i) => (p.score < players[bestIdx]!.score ? i : bestIdx), 0)
+  const promotedIds = new Set(toPromote.map(p => p.id))
+  const spectators = (state.spectators ?? []).filter(s => !promotedIds.has(s.id))
   return {
     ...state,
     players,
     pendingJoins: remainingPending,
+    spectators,
     deck,
     discard: [],
     turn: lowestIdx,

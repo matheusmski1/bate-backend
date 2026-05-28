@@ -47,4 +47,16 @@ describe('startRound — promoção de pendingJoins', () => {
     const p3 = state.players.find(p => p.id === 'p3')
     expect(p3?.score).toBe(0)
   })
+
+  it('remove promovidos da lista de spectators', () => {
+    const empty = createEmptyRoom({ roomId: 'r1', name: 'm', hostId: 'p1', hostName: 'a', maxPlayers: 4 })
+    empty.players.push(mkPlayer('p2', 'b'))
+    empty.pendingJoins.push(mkPlayer('p3', 'c'))
+    empty.spectators = [
+      { id: 'p3', name: 'c', socketId: 's3', skin: 'default' },
+      { id: 'p99', name: 'real-watcher', socketId: 's99', skin: 'default' },
+    ]
+    const state = startRound(empty)
+    expect(state.spectators.map(s => s.id)).toEqual(['p99'])
+  })
 })
