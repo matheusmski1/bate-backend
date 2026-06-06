@@ -135,6 +135,7 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
       })
       socket.join(payload.roomId)
       await lobby.bindSocket(socket.id, payload.roomId, payload.playerId)
+      await lobby.setPlayerRoom(payload.playerId, payload.roomId)
       console.log(`[room:join] socket=${socket.id} player=${payload.playerId} room=${payload.roomId} queued=${result.queued} totalPlayers=${result.state.players.length} totalPending=${result.state.pendingJoins.length}`)
       ack(result.queued ? { ok: true, queued: true } : { ok: true })
       broadcastRoom(io, result.state)

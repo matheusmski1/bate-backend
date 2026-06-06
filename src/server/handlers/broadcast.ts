@@ -1,6 +1,8 @@
 import type { Server as SocketServer } from 'socket.io'
 import type { GameState } from '@/types/shared'
 import { redactStateForPlayer } from '../game/redact'
+import { gameEvents } from '../events'
+import { log } from '../logger'
 
 export function broadcastRoom(io: SocketServer, state: GameState) {
   let emitted = 0
@@ -16,5 +18,12 @@ export function broadcastRoom(io: SocketServer, state: GameState) {
     io.to(spectator.socketId).emit('room:state', { state: redacted })
     emitted++
   }
-  console.log(`[broadcast] room ${state.roomId} phase=${state.phase} emitted=${emitted}`)
+  log.debug('broadcast', 'sent', { room: state.roomId, phase: state.phase, emitted })
+  gameEvents.emitBroadcast({
+    roomId: state.roomId,
+    phase: state.phase,
+    recipients: emitted,
+    roundNumber: state.roundNumber,
+    roundStartedAt: state.roundStartedAt,
+  })
 }

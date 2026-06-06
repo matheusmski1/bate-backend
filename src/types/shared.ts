@@ -86,6 +86,7 @@ export type GameState = {
   pausedRemainingMs: number | null
   roundTurnCount: number
   roundNumber: number
+  roundStartedAt: number | null
   spectators: Spectator[]
 }
 

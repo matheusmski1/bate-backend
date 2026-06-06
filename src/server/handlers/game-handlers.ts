@@ -8,6 +8,7 @@ import {
   startTurnTimer,
 } from '../game/engine'
 import { broadcastRoom } from './broadcast'
+import { gameEvents } from '../events'
 import { log, snapshot } from '../logger'
 import {
   parseAndAuth,
@@ -32,9 +33,13 @@ async function trace<T>(
 ): Promise<{ ok: true; result: T } | { ok: false; error: string }> {
   const t0 = Date.now()
   log.info(event, 'in', { socket: socket.id, ...payload })
+  const roomId = String(payload.room ?? '')
+  const playerId = String(payload.player ?? '')
   try {
     const result = await fn()
-    log.info(event, 'ok', { socket: socket.id, ms: Date.now() - t0 })
+    const ms = Date.now() - t0
+    log.info(event, 'ok', { socket: socket.id, ms })
+    gameEvents.emitAction({ event, roomId, playerId, ms, ok: true })
     return { ok: true, result }
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'UNKNOWN'
@@ -42,6 +47,7 @@ async function trace<T>(
     const fields = { socket: socket.id, ms: Date.now() - t0, error: msg, ...payload }
     if (benign) log.info(event, 'reject', fields)
     else log.error(event, 'fail', fields)
+    gameEvents.emitAction({ event, roomId, playerId, ms: Date.now() - t0, ok: false })
     return { ok: false, error: msg }
   }
 }

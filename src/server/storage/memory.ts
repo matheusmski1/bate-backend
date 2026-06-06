@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import type { GameState, Player, RoomSummary } from '@/types/shared'
-import { createEmptyRoom } from '../game/state'
+import { createEmptyRoom, trimLog } from '../game/state'
+
+const STORED_LOG_LIMIT = 60
 import { log } from '../logger'
 import type { Storage, CreateRoomInput, JoinInput, SocketBinding, DrawnCacheEntry } from './types'
 
@@ -25,6 +27,7 @@ type PendingLock = { promise: Promise<void>; release: () => void }
 export class MemoryStorage implements Storage {
   private rooms = new Map<string, GameState>()
   private socketIndex = new Map<string, SocketBinding>()
+  private playerRoom = new Map<string, string>()
   private drawnCache = new Map<string, DrawnCacheEntry>()
   private peekConfirmed = new Map<string, Set<string>>()
   private locks = new Map<string, PendingLock>()
@@ -109,11 +112,23 @@ export class MemoryStorage implements Storage {
   }
 
   async setRoom(state: GameState): Promise<void> {
-    this.rooms.set(state.roomId, state)
+    this.rooms.set(state.roomId, { ...state, log: trimLog(state.log, STORED_LOG_LIMIT) })
   }
 
   async listRooms(): Promise<RoomSummary[]> {
     return Array.from(this.rooms.values()).map(summarize)
+  }
+
+  async getRoomsWithExpiredDeadline(now: number): Promise<GameState[]> {
+    const result: GameState[] = []
+    for (const state of this.rooms.values()) {
+      if (state.paused) continue
+      if (state.turnDeadlineAt === null) continue
+      if (state.turnDeadlineAt > now) continue
+      if (state.phase !== 'playing' && state.phase !== 'bate-called') continue
+      result.push(state)
+    }
+    return result
   }
 
   async bindSocket(socketId: string, roomId: string, playerId: string): Promise<void> {
@@ -124,6 +139,18 @@ export class MemoryStorage implements Storage {
     const entry = this.socketIndex.get(socketId)
     if (entry) this.socketIndex.delete(socketId)
     return entry
+  }
+
+  async setPlayerRoom(playerId: string, roomId: string): Promise<void> {
+    this.playerRoom.set(playerId, roomId)
+  }
+
+  async getPlayerRoom(playerId: string): Promise<string | undefined> {
+    return this.playerRoom.get(playerId)
+  }
+
+  async clearPlayerRoom(playerId: string): Promise<void> {
+    this.playerRoom.delete(playerId)
   }
 
   async setDrawnCard(playerId: string, entry: DrawnCacheEntry): Promise<void> {
@@ -169,6 +196,7 @@ export class MemoryStorage implements Storage {
   async clear(): Promise<void> {
     this.rooms.clear()
     this.socketIndex.clear()
+    this.playerRoom.clear()
     this.drawnCache.clear()
     this.peekConfirmed.clear()
     this.locks.clear()

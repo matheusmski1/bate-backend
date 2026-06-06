@@ -1,5 +1,9 @@
-import type { GameState, Player } from '@/types/shared'
+import type { GameState, GameAction, Player } from '@/types/shared'
 import { createDeck, shuffleDeck } from './deck'
+
+export function trimLog(log: GameAction[], max: number): GameAction[] {
+  return log.length > max ? log.slice(-max) : log
+}
 
 type CreateRoomInput = {
   roomId: string
@@ -48,8 +52,27 @@ export function createEmptyRoom(input: CreateRoomInput): GameState {
     pausedRemainingMs: null,
     roundTurnCount: 0,
     roundNumber: 0,
+    roundStartedAt: null,
     spectators: [],
   }
+}
+
+export function markDisconnected(state: GameState, playerId: string, now: number): GameState {
+  const idx = state.players.findIndex(p => p.id === playerId)
+  if (idx === -1) return state
+  const players = state.players.map((p, i) =>
+    i === idx ? { ...p, connected: false, disconnectedAt: now } : p,
+  )
+  return { ...state, players }
+}
+
+export function rebindSocket(state: GameState, playerId: string, socketId: string): GameState {
+  const idx = state.players.findIndex(p => p.id === playerId)
+  if (idx === -1) return state
+  const players = state.players.map((p, i) =>
+    i === idx ? { ...p, socketId, connected: true, disconnectedAt: null } : p,
+  )
+  return { ...state, players }
 }
 
 export function startRound(state: GameState): GameState {
@@ -90,5 +113,6 @@ export function startRound(state: GameState): GameState {
     pausedRemainingMs: null,
     roundTurnCount: 1,
     roundNumber: state.roundNumber + 1,
+    roundStartedAt: Date.now(),
   }
 }

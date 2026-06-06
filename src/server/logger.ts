@@ -1,8 +1,14 @@
 import type { GameState } from '@/types/shared'
 
-type Level = 'info' | 'warn' | 'error'
+type Level = 'debug' | 'info' | 'warn' | 'error'
+
+const LEVELS: Record<Level, number> = { debug: 10, info: 20, warn: 30, error: 40 }
+
+const envLevel = process.env.LOG_LEVEL as Level | undefined
+const threshold = LEVELS[envLevel && envLevel in LEVELS ? envLevel : 'info']
 
 function emit(level: Level, scope: string, msg: string, data?: Record<string, unknown>) {
+  if (LEVELS[level] < threshold) return
   const time = new Date().toISOString()
   const dataStr = data && Object.keys(data).length ? ' ' + JSON.stringify(data) : ''
   const line = `[${time}] [${level.toUpperCase()}] [${scope}] ${msg}${dataStr}`
@@ -12,6 +18,7 @@ function emit(level: Level, scope: string, msg: string, data?: Record<string, un
 }
 
 export const log = {
+  debug: (scope: string, msg: string, data?: Record<string, unknown>) => emit('debug', scope, msg, data),
   info: (scope: string, msg: string, data?: Record<string, unknown>) => emit('info', scope, msg, data),
   warn: (scope: string, msg: string, data?: Record<string, unknown>) => emit('warn', scope, msg, data),
   error: (scope: string, msg: string, data?: Record<string, unknown>) => emit('error', scope, msg, data),
