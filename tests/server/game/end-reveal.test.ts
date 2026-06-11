@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { boardRevealSnapshot, isEndPhase, isBoardPhase } from '@/server/game/state'
+import { boardRevealSnapshot, isEndPhase, isBoardPhase, planEndReveal } from '@/server/game/state'
 import type { GameState } from '@/types/shared'
 
 function endState(overrides: Partial<GameState> = {}): GameState {
@@ -63,5 +63,30 @@ describe('boardRevealSnapshot', () => {
     const snap = boardRevealSnapshot(noEndLog, 'bate-called')
     expect(snap.log).toHaveLength(1)
     expect(snap.log[0]!.type).toBe('discard')
+  })
+})
+
+describe('planEndReveal', () => {
+  it('revela quando ação de tabuleiro vira fim de rodada', () => {
+    const plan = planEndReveal('bate-called', endState({ phase: 'round-end' }))
+    expect(plan.reveal).toBe(true)
+    if (plan.reveal) expect(plan.snapshot.phase).toBe('bate-called')
+  })
+
+  it('revela quando ação de tabuleiro vira fim de partida', () => {
+    const plan = planEndReveal('playing', endState({ phase: 'match-end' }))
+    expect(plan.reveal).toBe(true)
+  })
+
+  it('não revela quando o estado seguinte ainda é de tabuleiro', () => {
+    expect(planEndReveal('playing', endState({ phase: 'playing' })).reveal).toBe(false)
+  })
+
+  it('não revela quando já vinha de fase de fim (ex.: next-round)', () => {
+    expect(planEndReveal('round-end', endState({ phase: 'match-end' })).reveal).toBe(false)
+  })
+
+  it('não revela a partir de waiting/initial-peek', () => {
+    expect(planEndReveal('waiting', endState({ phase: 'round-end' })).reveal).toBe(false)
   })
 })

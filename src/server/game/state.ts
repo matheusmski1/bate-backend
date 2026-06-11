@@ -19,6 +19,17 @@ export function boardRevealSnapshot(endState: GameState, prevPhase: GamePhase): 
   return { ...endState, phase: prevPhase, turnDeadlineAt: null, log }
 }
 
+export type EndRevealPlan =
+  | { reveal: false }
+  | { reveal: true; snapshot: GameState }
+
+export function planEndReveal(prevPhase: GamePhase, next: GameState): EndRevealPlan {
+  if (isBoardPhase(prevPhase) && isEndPhase(next.phase)) {
+    return { reveal: true, snapshot: boardRevealSnapshot(next, prevPhase) }
+  }
+  return { reveal: false }
+}
+
 type CreateRoomInput = {
   roomId: string
   name: string
