@@ -302,16 +302,8 @@ export function skipEffect(state: GameState, playerId: string): GameState {
   return advanceTurnExported(cleared)
 }
 
-export function advanceTurnExported(state: GameState): GameState {
-  const nextTurn = (state.turn + 1) % state.players.length
-  if (state.phase === 'bate-called' && state.turnsRemaining !== null) {
-    const turnsRemaining = state.turnsRemaining - 1
-    if (turnsRemaining <= 0) {
-      return openFinalSnapWindow({ ...state, turn: nextTurn, turnsRemaining: 0, roundTurnCount: state.roundTurnCount + 1 })
-    }
-    return withFreshTurnTimer({ ...state, turn: nextTurn, turnsRemaining, roundTurnCount: state.roundTurnCount + 1 })
-  }
-  return withFreshTurnTimer({ ...state, turn: nextTurn, roundTurnCount: state.roundTurnCount + 1 })
+function advanceTurnExported(state: GameState): GameState {
+  return advanceTurn(state)
 }
 
 export function pauseTimer(state: GameState): GameState {
