@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { tallyRound, openFinalSnapWindow, extendFinalSnapWindow } from '@/server/game/engine'
+import { tallyRound, openFinalSnapWindow, extendFinalSnapWindow, discardDrawnCard, callBate } from '@/server/game/engine'
 import type { Card, GameState, Player } from '@/types/shared'
 
 function card(rank: Card['rank'], suit: Card['suit'] = 'hearts', id = `${rank}-${suit}`): Card {
@@ -57,5 +57,28 @@ describe('extendFinalSnapWindow', () => {
     const extended = extendFinalSnapWindow(opened, 2000)
     expect(extended.snapWindow?.durationMs).toBe(2000)
     expect(extended.phase).toBe('final-snap')
+  })
+})
+
+describe('última ação do bate abre final-snap em vez de finalizar', () => {
+  it('2 jogadores: descarte final do bate vira final-snap, não round-end', () => {
+    const players: Player[] = [
+      { id: 'p1', socketId: null, name: 'A', hand: [card('3')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default' },
+      { id: 'p2', socketId: null, name: 'B', hand: [card('K'), card('K', 'clubs', 'K-clubs')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default' },
+    ]
+    const base: GameState = {
+      roomId: 'r1', name: 'm', hostId: 'p1', maxPlayers: 2, players, pendingJoins: [],
+      deck: [card('9')], discard: [card('2')], turn: 0, phase: 'playing',
+      bateCallerId: null, turnsRemaining: null, pendingEffect: null, snapWindow: null,
+      log: [], createdAt: 1, turnTimeLimitSec: 60, turnDeadlineAt: null, paused: false, pausedRemainingMs: null,
+      roundTurnCount: 0, roundNumber: 1, roundStartedAt: 1, spectators: [],
+    }
+    const afterBate = callBate(base, 'p1')
+    expect(afterBate.phase).toBe('bate-called')
+    expect(afterBate.turnsRemaining).toBe(1)
+    expect(afterBate.turn).toBe(1)
+    const afterLast = discardDrawnCard(afterBate, 'p2', card('7'), false)
+    expect(afterLast.phase).toBe('final-snap')
+    expect(afterLast.players[1]!.score).toBe(0)
   })
 })

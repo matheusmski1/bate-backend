@@ -27,17 +27,14 @@ function withFreshTurnTimer(state: GameState): GameState {
 
 function advanceTurn(state: GameState): GameState {
   const nextTurn = (state.turn + 1) % state.players.length
-  let phase = state.phase
-  let turnsRemaining = state.turnsRemaining
-  let players = state.players
   if (state.phase === 'bate-called' && state.turnsRemaining !== null) {
-    turnsRemaining = state.turnsRemaining - 1
+    const turnsRemaining = state.turnsRemaining - 1
     if (turnsRemaining <= 0) {
-      players = state.players.map(p => ({ ...p, score: p.score + scoreHand(p.hand) }))
-      phase = isMatchEnd(players) ? 'match-end' : 'round-end'
+      return openFinalSnapWindow({ ...state, turn: nextTurn, turnsRemaining: 0, roundTurnCount: state.roundTurnCount + 1 })
     }
+    return withFreshTurnTimer({ ...state, turn: nextTurn, turnsRemaining, roundTurnCount: state.roundTurnCount + 1 })
   }
-  return withFreshTurnTimer({ ...state, players, turn: nextTurn, phase, turnsRemaining, roundTurnCount: state.roundTurnCount + 1 })
+  return withFreshTurnTimer({ ...state, turn: nextTurn, roundTurnCount: state.roundTurnCount + 1 })
 }
 
 export function drawFromDeck(state: GameState, playerId: string): { state: GameState; card: Card | null } {
@@ -305,19 +302,16 @@ export function skipEffect(state: GameState, playerId: string): GameState {
   return advanceTurnExported(cleared)
 }
 
-function advanceTurnExported(state: GameState): GameState {
+export function advanceTurnExported(state: GameState): GameState {
   const nextTurn = (state.turn + 1) % state.players.length
-  let phase = state.phase
-  let turnsRemaining = state.turnsRemaining
-  let players = state.players
   if (state.phase === 'bate-called' && state.turnsRemaining !== null) {
-    turnsRemaining = state.turnsRemaining - 1
+    const turnsRemaining = state.turnsRemaining - 1
     if (turnsRemaining <= 0) {
-      players = state.players.map(p => ({ ...p, score: p.score + scoreHand(p.hand) }))
-      phase = isMatchEnd(players) ? 'match-end' : 'round-end'
+      return openFinalSnapWindow({ ...state, turn: nextTurn, turnsRemaining: 0, roundTurnCount: state.roundTurnCount + 1 })
     }
+    return withFreshTurnTimer({ ...state, turn: nextTurn, turnsRemaining, roundTurnCount: state.roundTurnCount + 1 })
   }
-  return withFreshTurnTimer({ ...state, players, turn: nextTurn, phase, turnsRemaining, roundTurnCount: state.roundTurnCount + 1 })
+  return withFreshTurnTimer({ ...state, turn: nextTurn, roundTurnCount: state.roundTurnCount + 1 })
 }
 
 export function pauseTimer(state: GameState): GameState {
