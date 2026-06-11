@@ -75,6 +75,21 @@ export function rebindSocket(state: GameState, playerId: string, socketId: strin
   return { ...state, players }
 }
 
+export function lastActivityAt(state: GameState): number {
+  return Math.max(state.createdAt, ...state.log.map(l => l.timestamp))
+}
+
+export function shouldExpireIdleRoom(
+  state: GameState,
+  now: number,
+  idleLimitMs: number,
+  isConnected: (socketId: string | null) => boolean,
+): boolean {
+  const anyConnected = state.players.some(p => isConnected(p.socketId))
+  if (anyConnected) return false
+  return now - lastActivityAt(state) > idleLimitMs
+}
+
 export function startRound(state: GameState): GameState {
   const deck = shuffleDeck(createDeck())
   const slotsAvailable = state.maxPlayers - state.players.length

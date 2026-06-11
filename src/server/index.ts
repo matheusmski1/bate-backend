@@ -19,7 +19,7 @@ import { seedDefaultArenas, backfillDefaultArenasToAllUsers } from './db/seed-ar
 import { listDecksForUser, equipDeckForUser } from './db/decks'
 import { listArenasForUser, equipArenaForUser } from './db/arenas'
 import { removePlayerMidGame, discardDrawnCard, skipEffect, autoPlayExpiredTurn } from './game/engine'
-import { markDisconnected, rebindSocket } from './game/state'
+import { markDisconnected, rebindSocket, shouldExpireIdleRoom, lastActivityAt } from './game/state'
 
 const port = Number(process.env.PORT ?? 3001)
 const corsOrigin = process.env.CORS_ORIGIN ?? '*'
@@ -37,8 +37,8 @@ function isOriginAllowed(origin: string | undefined): boolean {
   return ALLOWED_ORIGINS.includes(origin)
 }
 const RECONNECT_GRACE_MS = 30_000
-const IDLE_ROOM_MS = 5 * 60 * 1000
-const CLEANUP_INTERVAL_MS = 30_000
+const IDLE_ROOM_MS = Number(process.env.ROOM_IDLE_MS ?? 5 * 60 * 1000)
+const CLEANUP_INTERVAL_MS = Number(process.env.ROOM_CLEANUP_INTERVAL_MS ?? 30_000)
 
 function corsHeaders(req: IncomingMessage): Record<string, string> {
   const origin = req.headers.origin
@@ -442,10 +442,10 @@ setInterval(async () => {
   for (const summary of summaries) {
     const room = await lobby.getRoom(summary.roomId)
     if (!room) continue
-    const lastActivity = Math.max(room.createdAt, ...room.log.map(l => l.timestamp))
-    const idleMs = now - lastActivity
-    if (idleMs > IDLE_ROOM_MS) {
-      log.warn('cleanup', 'expiring idle room', { room: summary.roomId, idleSec: Math.round(idleMs / 1000), phase: room.phase, players: room.players.length })
+    const isConnected = (socketId: string | null) => !!socketId && io.sockets.sockets.has(socketId)
+    if (shouldExpireIdleRoom(room, now, IDLE_ROOM_MS, isConnected)) {
+      const idleSec = Math.round((now - lastActivityAt(room)) / 1000)
+      log.warn('cleanup', 'expiring idle room', { room: summary.roomId, idleSec, phase: room.phase, players: room.players.length })
       for (const player of room.players) {
         if (player.socketId && io.sockets.sockets.has(player.socketId)) {
           io.to(player.socketId).emit('room:expired', {
