@@ -3,12 +3,12 @@ import { lobby } from '../lobby'
 import { startRound } from '../game/state'
 import {
   drawFromDeck, discardDrawnCard, swapAndDiscard,
-  snapCard,
+  snapCard, extendFinalSnapWindow,
   resolveEffect, skipEffect, callBate, finishRound,
   startTurnTimer,
 } from '../game/engine'
 import { broadcastRoom } from './broadcast'
-import { broadcastAfterAction } from './final-snap'
+import { broadcastAfterAction, broadcastSnapExtend, FINAL_SNAP_EXTEND_MS } from './final-snap'
 import { gameEvents } from '../events'
 import { log, snapshot } from '../logger'
 import {
@@ -152,7 +152,14 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
         log.info('game:snap', 'state', { room: payload.roomId, before: snapshot(room) })
         const next = snapCard(room, payload.playerId, payload.handIndex)
         await lobby.setRoom(next)
-        broadcastAfterAction(io, next)
+        const lastType = next.log[next.log.length - 1]?.type
+        if (room.phase === 'final-snap' && next.phase === 'final-snap' && lastType === 'snap') {
+          const extended = extendFinalSnapWindow(next, FINAL_SNAP_EXTEND_MS)
+          await lobby.setRoom(extended)
+          broadcastSnapExtend(io, extended)
+        } else {
+          broadcastAfterAction(io, next)
+        }
         const lastEvent = next.log[next.log.length - 1]
         log.info('game:snap', 'state', { room: payload.roomId, outcome: lastEvent?.type, after: snapshot(next) })
       })

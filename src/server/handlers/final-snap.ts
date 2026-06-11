@@ -5,6 +5,8 @@ import { broadcastRoom } from './broadcast'
 import { tallyRound, FINAL_SNAP_WINDOW_MS } from '../game/engine'
 import { log } from '../logger'
 
+export const FINAL_SNAP_EXTEND_MS = Number(process.env.FINAL_SNAP_EXTEND_MS ?? 2000)
+
 const finalizeTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 export function scheduleRoundFinalize(
@@ -29,6 +31,11 @@ export function scheduleRoundFinalize(
     })().catch(err => log.error('final-snap', 'finalize failed', { roomId, error: err instanceof Error ? err.message : 'UNKNOWN' }))
   }, delayMs)
   finalizeTimers.set(roomId, timer)
+}
+
+export function broadcastSnapExtend(io: SocketServer, next: GameState): void {
+  broadcastRoom(io, next)
+  scheduleRoundFinalize(io, next.roomId, next.roundNumber, FINAL_SNAP_EXTEND_MS)
 }
 
 export function broadcastAfterAction(

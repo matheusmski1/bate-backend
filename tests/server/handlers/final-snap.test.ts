@@ -9,7 +9,7 @@ vi.mock('@/server/lobby', () => ({ lobby: {
   withRoomLock: (_id: string, fn: () => unknown) => fn(),
 } }))
 
-import { scheduleRoundFinalize, broadcastAfterAction } from '@/server/handlers/final-snap'
+import { scheduleRoundFinalize, broadcastAfterAction, broadcastSnapExtend } from '@/server/handlers/final-snap'
 
 type Emit = { socketId: string; event: string; payload: any }
 function fakeIo(): { io: any; emits: Emit[] } {
@@ -83,5 +83,16 @@ describe('scheduleRoundFinalize', () => {
     scheduleRoundFinalize(io, 'r1', 1, 50)
     await vi.advanceTimersByTimeAsync(50)
     expect(setRoom).not.toHaveBeenCalled()
+  })
+})
+
+describe('broadcastSnapExtend', () => {
+  it('faz broadcast e reagenda o finalize com FINAL_SNAP_EXTEND_MS', async () => {
+    const { io, emits } = fakeIo()
+    getRoom.mockResolvedValue(finalSnapState())
+    broadcastSnapExtend(io, finalSnapState())
+    expect(emits.length).toBe(2)
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(setRoom).toHaveBeenCalled()
   })
 })
