@@ -2,7 +2,7 @@ import type { Card, GameState, GameAction, GameActionType } from '@/types/shared
 import { scoreHand, isMatchEnd } from './scoring'
 
 const SNAP_WINDOW_MS = 3000
-const FINAL_SNAP_WINDOW_MS = Number(process.env.FINAL_SNAP_WINDOW_MS ?? 2500)
+export const FINAL_SNAP_WINDOW_MS = Number(process.env.FINAL_SNAP_WINDOW_MS ?? 2500)
 const MAX_HAND_SIZE = 10
 
 function logEvent(state: GameState, type: GameActionType, actorId: string, payload?: Record<string, unknown>): GameAction[] {

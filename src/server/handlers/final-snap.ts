@@ -2,10 +2,9 @@ import type { Server as SocketServer } from 'socket.io'
 import type { GameState } from '@/types/shared'
 import { lobby } from '../lobby'
 import { broadcastRoom } from './broadcast'
-import { tallyRound } from '../game/engine'
+import { tallyRound, FINAL_SNAP_WINDOW_MS } from '../game/engine'
 import { log } from '../logger'
 
-const FINAL_SNAP_WINDOW_MS = Number(process.env.FINAL_SNAP_WINDOW_MS ?? 2500)
 const finalizeTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 export function scheduleRoundFinalize(
