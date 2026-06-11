@@ -32,7 +32,7 @@
 ## Desenho — Backend
 
 ### Tipos compartilhados
-- `src/types/shared.ts` (**os dois repos**, md5 hoje igual): `GameState` ganha `private: boolean`. `RedactedState = Omit<GameState,'players'|'deck'> & {...}` **carrega `private` de graça**. `RoomSummary` **não muda** (sala privada nem é resumida).
+- `src/types/shared.ts` (**os dois repos**, md5 hoje igual): `GameState` ganha `private?: boolean` (**opcional** — 6 testes backend + o mock `test-layout/page.tsx:55` constroem state literal; obrigatório quebraria todos. `createEmptyRoom` sempre seta `?? false` explícito → determinístico). `RedactedState = Omit<GameState,'players'|'deck'> & {...}` **carrega `private` de graça**. `RoomSummary` **não muda** (sala privada nem é resumida).
 
 ### Schema + input
 - `handlers/schemas.ts`: `RoomCreateSchema` += `private: z.boolean().optional()`.
