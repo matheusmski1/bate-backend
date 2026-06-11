@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { tallyRound, openFinalSnapWindow, extendFinalSnapWindow, discardDrawnCard, callBate, snapCard } from '@/server/game/engine'
+import { tallyRound, openFinalSnapWindow, extendFinalSnapWindow, discardDrawnCard, callBate, snapCard, swapAndDiscard } from '@/server/game/engine'
 import type { Card, GameState, Player } from '@/types/shared'
 
 function card(rank: Card['rank'], suit: Card['suit'] = 'hearts', id = `${rank}-${suit}`): Card {
@@ -80,6 +80,26 @@ describe('última ação do bate abre final-snap em vez de finalizar', () => {
     const afterLast = discardDrawnCard(afterBate, 'p2', card('7'), false)
     expect(afterLast.phase).toBe('final-snap')
     expect(afterLast.players[1]!.score).toBe(0)
+  })
+})
+
+describe('efeito de carta no último turno do bate resolve antes de fechar', () => {
+  it('descartar uma carta de efeito (swap) no último turno vai pra effect-pending, não fecha direto', () => {
+    const players: Player[] = [
+      { id: 'p1', socketId: null, name: 'A', hand: [card('3')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default' },
+      { id: 'p2', socketId: null, name: 'B', hand: [card('Q'), card('5')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default' },
+    ]
+    const base: GameState = {
+      roomId: 'r1', name: 'm', hostId: 'p1', maxPlayers: 2, players, pendingJoins: [],
+      deck: [card('9')], discard: [card('2')], turn: 0, phase: 'playing',
+      bateCallerId: null, turnsRemaining: null, pendingEffect: null, snapWindow: null,
+      log: [], createdAt: 1, turnTimeLimitSec: 60, turnDeadlineAt: null, paused: false, pausedRemainingMs: null,
+      roundTurnCount: 0, roundNumber: 1, roundStartedAt: 1, spectators: [],
+    }
+    const afterBate = callBate(base, 'p1')
+    const afterSwap = swapAndDiscard(afterBate, 'p2', card('K'), 0)
+    expect(afterSwap.phase).toBe('effect-pending')
+    expect(afterSwap.pendingEffect?.type).toBe('swap')
   })
 })
 
