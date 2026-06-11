@@ -3,12 +3,12 @@ import { lobby } from '../lobby'
 import { startRound } from '../game/state'
 import {
   drawFromDeck, discardDrawnCard, swapAndDiscard,
-  snapCard,
+  snapCard, extendFinalSnapWindow,
   resolveEffect, skipEffect, callBate, finishRound,
   startTurnTimer,
 } from '../game/engine'
 import { broadcastRoom } from './broadcast'
-import { broadcastEndAware } from './end-reveal'
+import { broadcastAfterAction, broadcastSnapExtend, FINAL_SNAP_EXTEND_MS } from './final-snap'
 import { gameEvents } from '../events'
 import { log, snapshot } from '../logger'
 import {
@@ -109,7 +109,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
         } else {
           log.warn('game:draw', 'deck empty — ending round', { room: payload.roomId })
         }
-        broadcastEndAware(io, room.phase, next)
+        broadcastAfterAction(io, next)
         return card
       })
     })
@@ -135,7 +135,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
         }
         await lobby.setRoom(next)
         await lobby.clearDrawnCard(payload.playerId)
-        broadcastEndAware(io, room.phase, next)
+        broadcastAfterAction(io, next)
         log.info('game:keep-or-discard', 'state', { room: payload.roomId, drawnRank: drawnCard.rank, after: snapshot(next) })
       })
     })
@@ -152,7 +152,18 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
         log.info('game:snap', 'state', { room: payload.roomId, before: snapshot(room) })
         const next = snapCard(room, payload.playerId, payload.handIndex)
         await lobby.setRoom(next)
-        broadcastEndAware(io, room.phase, next)
+        const lastType = next.log[next.log.length - 1]?.type
+        if (room.phase === 'final-snap') {
+          if (lastType === 'snap') {
+            const extended = extendFinalSnapWindow(next, FINAL_SNAP_EXTEND_MS)
+            await lobby.setRoom(extended)
+            broadcastSnapExtend(io, extended)
+          } else {
+            broadcastRoom(io, next)
+          }
+        } else {
+          broadcastAfterAction(io, next)
+        }
         const lastEvent = next.log[next.log.length - 1]
         log.info('game:snap', 'state', { room: payload.roomId, outcome: lastEvent?.type, after: snapshot(next) })
       })
@@ -169,7 +180,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
         if (!room) throw new Error('ROOM_NOT_FOUND')
         const next = skipEffect(room, payload.playerId)
         await lobby.setRoom(next)
-        broadcastEndAware(io, room.phase, next)
+        broadcastAfterAction(io, next)
       })
     })
     ack(r.ok ? { ok: true } : { error: r.error })
@@ -184,7 +195,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
         if (!room) throw new Error('ROOM_NOT_FOUND')
         const { state: next, revealed } = resolveEffect(room, payload.playerId, payload)
         await lobby.setRoom(next)
-        broadcastEndAware(io, room.phase, next)
+        broadcastAfterAction(io, next)
         return revealed
       })
     })

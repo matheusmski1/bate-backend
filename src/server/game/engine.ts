@@ -2,6 +2,7 @@ import type { Card, GameState, GameAction, GameActionType } from '@/types/shared
 import { scoreHand, isMatchEnd } from './scoring'
 
 const SNAP_WINDOW_MS = 3000
+export const FINAL_SNAP_WINDOW_MS = Number(process.env.FINAL_SNAP_WINDOW_MS ?? 2500)
 const MAX_HAND_SIZE = 10
 
 function logEvent(state: GameState, type: GameActionType, actorId: string, payload?: Record<string, unknown>): GameAction[] {
@@ -26,17 +27,14 @@ function withFreshTurnTimer(state: GameState): GameState {
 
 function advanceTurn(state: GameState): GameState {
   const nextTurn = (state.turn + 1) % state.players.length
-  let phase = state.phase
-  let turnsRemaining = state.turnsRemaining
-  let players = state.players
   if (state.phase === 'bate-called' && state.turnsRemaining !== null) {
-    turnsRemaining = state.turnsRemaining - 1
+    const turnsRemaining = state.turnsRemaining - 1
     if (turnsRemaining <= 0) {
-      players = state.players.map(p => ({ ...p, score: p.score + scoreHand(p.hand) }))
-      phase = isMatchEnd(players) ? 'match-end' : 'round-end'
+      return openFinalSnapWindow({ ...state, turn: nextTurn, turnsRemaining: 0, roundTurnCount: state.roundTurnCount + 1 })
     }
+    return withFreshTurnTimer({ ...state, turn: nextTurn, turnsRemaining, roundTurnCount: state.roundTurnCount + 1 })
   }
-  return withFreshTurnTimer({ ...state, players, turn: nextTurn, phase, turnsRemaining, roundTurnCount: state.roundTurnCount + 1 })
+  return withFreshTurnTimer({ ...state, turn: nextTurn, roundTurnCount: state.roundTurnCount + 1 })
 }
 
 export function drawFromDeck(state: GameState, playerId: string): { state: GameState; card: Card | null } {
@@ -172,7 +170,7 @@ export function snapCard(state: GameState, playerId: string, handIndex: number):
   if (state.discard.length === 0) {
     throw new Error('NO_DISCARD')
   }
-  if (state.phase !== 'playing' && state.phase !== 'bate-called') {
+  if (state.phase !== 'playing' && state.phase !== 'bate-called' && state.phase !== 'final-snap') {
     throw new Error('INVALID_PHASE')
   }
   const playerIdx = state.players.findIndex(p => p.id === playerId)
@@ -305,18 +303,7 @@ export function skipEffect(state: GameState, playerId: string): GameState {
 }
 
 function advanceTurnExported(state: GameState): GameState {
-  const nextTurn = (state.turn + 1) % state.players.length
-  let phase = state.phase
-  let turnsRemaining = state.turnsRemaining
-  let players = state.players
-  if (state.phase === 'bate-called' && state.turnsRemaining !== null) {
-    turnsRemaining = state.turnsRemaining - 1
-    if (turnsRemaining <= 0) {
-      players = state.players.map(p => ({ ...p, score: p.score + scoreHand(p.hand) }))
-      phase = isMatchEnd(players) ? 'match-end' : 'round-end'
-    }
-  }
-  return withFreshTurnTimer({ ...state, players, turn: nextTurn, phase, turnsRemaining, roundTurnCount: state.roundTurnCount + 1 })
+  return advanceTurn(state)
 }
 
 export function pauseTimer(state: GameState): GameState {
@@ -363,6 +350,38 @@ export function autoPlayExpiredTurn(state: GameState): { state: GameState; reaso
   const log2 = logEvent(afterDraw, 'discard', playerId, { cardId: card.id, rank: card.rank, auto: true })
   const next = advanceTurn({ ...afterDraw, discard, log: log2, snapWindow: null })
   return { state: next, reason: 'auto-draw-discard' }
+}
+
+export function tallyRound(state: GameState): GameState {
+  const players = state.players.map(p => ({ ...p, score: p.score + scoreHand(p.hand) }))
+  return {
+    ...state,
+    players,
+    phase: isMatchEnd(players) ? 'match-end' : 'round-end',
+    snapWindow: null,
+    turnDeadlineAt: null,
+    paused: false,
+    pausedRemainingMs: null,
+    log: [...state.log, { timestamp: Date.now(), type: 'round-end', actorId: '', payload: { reason: 'bate' } }],
+  }
+}
+
+export function openFinalSnapWindow(state: GameState, windowMs: number = FINAL_SNAP_WINDOW_MS): GameState {
+  const top = state.discard[state.discard.length - 1]
+  return {
+    ...state,
+    phase: 'final-snap',
+    turnsRemaining: 0,
+    turnDeadlineAt: null,
+    paused: false,
+    pausedRemainingMs: null,
+    snapWindow: top ? { openedAt: Date.now(), durationMs: windowMs, discardedCardId: top.id } : null,
+  }
+}
+
+export function extendFinalSnapWindow(state: GameState, extendMs: number): GameState {
+  if (!state.snapWindow) return state
+  return { ...state, snapWindow: { ...state.snapWindow, openedAt: Date.now(), durationMs: extendMs } }
 }
 
 export function finishRound(state: GameState): GameState {
