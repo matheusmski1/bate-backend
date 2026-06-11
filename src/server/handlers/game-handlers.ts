@@ -153,10 +153,14 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
         const next = snapCard(room, payload.playerId, payload.handIndex)
         await lobby.setRoom(next)
         const lastType = next.log[next.log.length - 1]?.type
-        if (room.phase === 'final-snap' && next.phase === 'final-snap' && lastType === 'snap') {
-          const extended = extendFinalSnapWindow(next, FINAL_SNAP_EXTEND_MS)
-          await lobby.setRoom(extended)
-          broadcastSnapExtend(io, extended)
+        if (room.phase === 'final-snap') {
+          if (lastType === 'snap') {
+            const extended = extendFinalSnapWindow(next, FINAL_SNAP_EXTEND_MS)
+            await lobby.setRoom(extended)
+            broadcastSnapExtend(io, extended)
+          } else {
+            broadcastRoom(io, next)
+          }
         } else {
           broadcastAfterAction(io, next)
         }
