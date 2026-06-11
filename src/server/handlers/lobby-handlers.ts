@@ -40,6 +40,46 @@ import { redactStateForPlayer } from '../game/redact'
 const EMOTE_COOLDOWN_MS = 2500
 const lastEmoteAt = new Map<string, number>()
 
+export async function leaveRoom(io: SocketServer, socket: Socket, roomId: string, playerId: string): Promise<void> {
+  const result = await lobby.withRoomLock(roomId, async () => {
+    const room = await lobby.getRoom(roomId)
+    if (!room) return null
+    const isPending = (room.pendingJoins ?? []).some(p => p.id === playerId)
+    if (isPending) {
+      const next = {
+        ...room,
+        pendingJoins: room.pendingJoins.filter(p => p.id !== playerId),
+        spectators: (room.spectators ?? []).filter(s => s.id !== playerId),
+      }
+      await lobby.setRoom(next)
+      return next
+    }
+    const isSpectator = (room.spectators ?? []).some(s => s.id === playerId)
+    if (isSpectator) {
+      const next = { ...room, spectators: (room.spectators ?? []).filter(s => s.id !== playerId) }
+      await lobby.setRoom(next)
+      return next
+    }
+    const inGame = room.phase !== 'waiting' && room.phase !== 'round-end' && room.phase !== 'match-end'
+    if (inGame) {
+      const adjusted = removePlayerMidGame(room, playerId)
+      await lobby.setRoom(adjusted)
+      if (adjusted.players.length === 0) {
+        await lobby.removeRoom(roomId)
+        return null
+      }
+      return adjusted
+    }
+    return (await lobby.removePlayer(roomId, playerId)) ?? null
+  })
+  socket.leave(roomId)
+  await lobby.releaseSocket(socket.id)
+  await lobby.clearPlayerRoom(playerId)
+  if (result) broadcastRoom(io, result)
+  io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
+  console.log(`[room:leave] socket=${socket.id} player=${playerId} room=${roomId}`)
+}
+
 export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
   socket.on('lobby:subscribe', async () => {
     socket.join('lobby')
@@ -184,44 +224,8 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
     const payload = parseAndAuth(RoomLeaveSchema, raw, ack, socket)
     if (!payload) return
     try {
-      const result = await lobby.withRoomLock(payload.roomId, async () => {
-        const room = await lobby.getRoom(payload.roomId)
-        if (!room) return null
-        const isPending = (room.pendingJoins ?? []).some(p => p.id === payload.playerId)
-        if (isPending) {
-          const spectators = (room.spectators ?? []).filter(s => s.id !== payload.playerId)
-          const next = {
-            ...room,
-            pendingJoins: room.pendingJoins.filter(p => p.id !== payload.playerId),
-            spectators,
-          }
-          await lobby.setRoom(next)
-          return next
-        }
-        const isSpectator = (room.spectators ?? []).some(s => s.id === payload.playerId)
-        if (isSpectator) {
-          const next = { ...room, spectators: (room.spectators ?? []).filter(s => s.id !== payload.playerId) }
-          await lobby.setRoom(next)
-          return next
-        }
-        const inGame = room.phase !== 'waiting' && room.phase !== 'round-end' && room.phase !== 'match-end'
-        if (inGame) {
-          const adjusted = removePlayerMidGame(room, payload.playerId)
-          await lobby.setRoom(adjusted)
-          if (adjusted.players.length === 0) {
-            await lobby.removeRoom(payload.roomId)
-            return null
-          }
-          return adjusted
-        }
-        return await lobby.removePlayer(payload.roomId, payload.playerId) ?? null
-      })
-      socket.leave(payload.roomId)
-      await lobby.releaseSocket(socket.id)
+      await leaveRoom(io, socket, payload.roomId, payload.playerId)
       ack({ ok: true })
-      if (result) broadcastRoom(io, result)
-      io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
-      console.log(`[room:leave] socket=${socket.id} player=${payload.playerId} room=${payload.roomId}`)
     } catch (err) {
       ack({ error: err instanceof Error ? err.message : 'UNKNOWN' })
     }
