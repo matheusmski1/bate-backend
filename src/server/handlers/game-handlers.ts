@@ -8,6 +8,7 @@ import {
   startTurnTimer,
 } from '../game/engine'
 import { broadcastRoom } from './broadcast'
+import { broadcastEndAware } from './end-reveal'
 import { gameEvents } from '../events'
 import { log, snapshot } from '../logger'
 import {
@@ -108,7 +109,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
         } else {
           log.warn('game:draw', 'deck empty — ending round', { room: payload.roomId })
         }
-        broadcastRoom(io, next)
+        broadcastEndAware(io, room.phase, next)
         return card
       })
     })
@@ -134,7 +135,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
         }
         await lobby.setRoom(next)
         await lobby.clearDrawnCard(payload.playerId)
-        broadcastRoom(io, next)
+        broadcastEndAware(io, room.phase, next)
         log.info('game:keep-or-discard', 'state', { room: payload.roomId, drawnRank: drawnCard.rank, after: snapshot(next) })
       })
     })
@@ -151,7 +152,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
         log.info('game:snap', 'state', { room: payload.roomId, before: snapshot(room) })
         const next = snapCard(room, payload.playerId, payload.handIndex)
         await lobby.setRoom(next)
-        broadcastRoom(io, next)
+        broadcastEndAware(io, room.phase, next)
         const lastEvent = next.log[next.log.length - 1]
         log.info('game:snap', 'state', { room: payload.roomId, outcome: lastEvent?.type, after: snapshot(next) })
       })
@@ -168,7 +169,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
         if (!room) throw new Error('ROOM_NOT_FOUND')
         const next = skipEffect(room, payload.playerId)
         await lobby.setRoom(next)
-        broadcastRoom(io, next)
+        broadcastEndAware(io, room.phase, next)
       })
     })
     ack(r.ok ? { ok: true } : { error: r.error })
@@ -183,7 +184,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
         if (!room) throw new Error('ROOM_NOT_FOUND')
         const { state: next, revealed } = resolveEffect(room, payload.playerId, payload)
         await lobby.setRoom(next)
-        broadcastRoom(io, next)
+        broadcastEndAware(io, room.phase, next)
         return revealed
       })
     })
