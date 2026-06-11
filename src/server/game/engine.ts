@@ -170,7 +170,7 @@ export function snapCard(state: GameState, playerId: string, handIndex: number):
   if (state.discard.length === 0) {
     throw new Error('NO_DISCARD')
   }
-  if (state.phase !== 'playing' && state.phase !== 'bate-called') {
+  if (state.phase !== 'playing' && state.phase !== 'bate-called' && state.phase !== 'final-snap') {
     throw new Error('INVALID_PHASE')
   }
   const playerIdx = state.players.findIndex(p => p.id === playerId)

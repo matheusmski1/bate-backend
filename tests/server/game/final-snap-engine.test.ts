@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { tallyRound, openFinalSnapWindow, extendFinalSnapWindow, discardDrawnCard, callBate } from '@/server/game/engine'
+import { tallyRound, openFinalSnapWindow, extendFinalSnapWindow, discardDrawnCard, callBate, snapCard } from '@/server/game/engine'
 import type { Card, GameState, Player } from '@/types/shared'
 
 function card(rank: Card['rank'], suit: Card['suit'] = 'hearts', id = `${rank}-${suit}`): Card {
@@ -80,5 +80,21 @@ describe('última ação do bate abre final-snap em vez de finalizar', () => {
     const afterLast = discardDrawnCard(afterBate, 'p2', card('7'), false)
     expect(afterLast.phase).toBe('final-snap')
     expect(afterLast.players[1]!.score).toBe(0)
+  })
+})
+
+describe('snap na janela final', () => {
+  it('corte de carta igual ao topo funciona em final-snap', () => {
+    const s = openFinalSnapWindow({
+      ...bateState(),
+      players: [
+        { id: 'p1', socketId: null, name: 'A', hand: [], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default' },
+        { id: 'p2', socketId: null, name: 'B', hand: [card('A', 'clubs', 'A-clubs')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default' },
+      ],
+      discard: [card('A', 'spades')],
+    }, 2500)
+    const after = snapCard(s, 'p2', 0)
+    expect(after.players[1]!.hand).toHaveLength(0)
+    expect(after.log[after.log.length - 1]!.type).toBe('snap')
   })
 })
