@@ -7,7 +7,7 @@ function twoPlayerRound(): GameState {
   const empty = createEmptyRoom({ roomId: 'r1', name: 'm', hostId: 'p1', hostName: 'a', maxPlayers: 2 })
   empty.players.push({
     id: 'p2', socketId: null, name: 'b', hand: [], score: 0,
-    connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default', arena: 'default', arena: 'default', arena: 'default',
+    connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default',
   })
   const round = startRound(empty)
   return { ...round, phase: 'playing' }
@@ -79,7 +79,7 @@ describe('swapAndDiscard', () => {
     const empty = createEmptyRoom({ roomId: 'r1', name: 'm', hostId: 'p1', hostName: 'a', maxPlayers: 2 })
     empty.players.push({
       id: 'p2', socketId: null, name: 'b', hand: [], score: 0,
-      connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default', arena: 'default', arena: 'default', arena: 'default',
+      connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default',
     })
     const state: GameState = {
       ...empty,
