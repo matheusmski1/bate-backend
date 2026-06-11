@@ -50,4 +50,22 @@ run('SALA-2: assento fantasma', () => {
     hostSocket.disconnect(); guestSocket.disconnect()
     await delay(100)
   }, 25000)
+
+  it('entrar noutra sala em waiting libera o assento da anterior', async () => {
+    const { hostSocket, guest, guestSocket } = await roomWithGuest()
+
+    const host2 = await guestSession(BASE)
+    const host2Socket = await connect(BASE, host2.cookie)
+    const created2 = await emitAck(host2Socket, 'room:create', {
+      name: 'sala-b', hostId: host2.playerId, hostName: 'Host2', maxPlayers: 4, turnTimeLimitSec: 600,
+    })
+    const roomB = created2.roomId as string
+    await emitAck(host2Socket, 'room:join', { roomId: roomB, playerId: host2.playerId, playerName: 'Host2' })
+
+    const leftA = waitForRoomState(hostSocket, semGuest, 4000)
+    await emitAck(guestSocket, 'room:join', { roomId: roomB, playerId: guest.playerId, playerName: 'Guest' })
+    await leftA
+    hostSocket.disconnect(); guestSocket.disconnect(); host2Socket.disconnect()
+    await delay(100)
+  }, 25000)
 })

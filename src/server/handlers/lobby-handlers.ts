@@ -148,6 +148,14 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
     const payload = parseAndAuth(RoomJoinSchema, raw, ack, socket)
     if (!payload) return
     try {
+      const previousRoomId = await lobby.getPlayerRoom(payload.playerId)
+      if (previousRoomId && previousRoomId !== payload.roomId) {
+        const previousRoom = await lobby.getRoom(previousRoomId)
+        const leftBehind = previousRoom
+          && (previousRoom.phase === 'waiting' || previousRoom.phase === 'round-end')
+          && previousRoom.players.some(p => p.id === payload.playerId)
+        if (leftBehind) await leaveRoom(io, socket, previousRoomId, payload.playerId)
+      }
       const [deck, arena] = await Promise.all([lookupDeck(payload.playerId), lookupArena(payload.playerId)])
       const result = await lobby.withRoomLock(payload.roomId, async () => {
         const next = await lobby.joinRoom(payload.roomId, { ...payload, deck, arena })
