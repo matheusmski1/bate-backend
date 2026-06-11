@@ -32,6 +32,10 @@ describe('isEndPhase / isBoardPhase', () => {
     expect(isBoardPhase('waiting')).toBe(false)
     expect(isBoardPhase('round-end')).toBe(false)
   })
+
+  it('initial-peek não conta como fase de tabuleiro (exclusão intencional)', () => {
+    expect(isBoardPhase('initial-peek')).toBe(false)
+  })
 })
 
 describe('boardRevealSnapshot', () => {
@@ -47,6 +51,11 @@ describe('boardRevealSnapshot', () => {
     const snap = boardRevealSnapshot(endState(), 'playing')
     expect(snap.log).toHaveLength(1)
     expect(snap.log[snap.log.length - 1]!.type).toBe('discard')
+  })
+
+  it('não quebra com log vazio', () => {
+    const snap = boardRevealSnapshot(endState({ log: [] }), 'playing')
+    expect(snap.log).toHaveLength(0)
   })
 
   it('não mexe no log quando a última entrada não é round-end (caso bate)', () => {
