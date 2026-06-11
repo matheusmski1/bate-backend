@@ -10,7 +10,7 @@ export function isEndPhase(phase: GamePhase): boolean {
 }
 
 export function isBoardPhase(phase: GamePhase): boolean {
-  return phase === 'playing' || phase === 'bate-called' || phase === 'effect-pending'
+  return phase === 'playing' || phase === 'bate-called' || phase === 'effect-pending' || phase === 'final-snap'
 }
 
 export function boardRevealSnapshot(endState: GameState, prevPhase: GamePhase): GameState {

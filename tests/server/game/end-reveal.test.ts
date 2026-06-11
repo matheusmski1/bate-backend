@@ -31,6 +31,8 @@ describe('isEndPhase / isBoardPhase', () => {
     expect(isBoardPhase('effect-pending')).toBe(true)
     expect(isBoardPhase('waiting')).toBe(false)
     expect(isBoardPhase('round-end')).toBe(false)
+    expect(isBoardPhase('final-snap')).toBe(true)
+    expect(isEndPhase('final-snap')).toBe(false)
   })
 
   it('initial-peek não conta como fase de tabuleiro (exclusão intencional)', () => {
