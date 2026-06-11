@@ -116,7 +116,7 @@ export class MemoryStorage implements Storage {
   }
 
   async listRooms(): Promise<RoomSummary[]> {
-    return Array.from(this.rooms.values()).map(summarize)
+    return Array.from(this.rooms.values()).filter(s => !s.private).map(summarize)
   }
 
   async getRoomsWithExpiredDeadline(now: number): Promise<GameState[]> {

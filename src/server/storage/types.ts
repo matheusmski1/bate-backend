@@ -12,6 +12,7 @@ export type CreateRoomInput = {
   turnTimeLimitSec?: number | null
   deck?: string
   arena?: string
+  private?: boolean
 }
 
 export type JoinInput = { playerId: string; playerName: string; deck?: string; arena?: string }

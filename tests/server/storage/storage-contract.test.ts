@@ -72,6 +72,19 @@ function runStorageContract(label: string, makeStorage: () => Storage, teardown?
       expect(summary?.playerCount).toBe(1)
     })
 
+    it('nao lista sala privada mas a recupera por id', async () => {
+      const aberta = await storage.createRoom(createInput())
+      const secreta = await storage.createRoom({ ...createInput(), private: true })
+
+      const listadas = (await storage.listRooms()).map(r => r.roomId)
+      expect(listadas).toContain(aberta.roomId)
+      expect(listadas).not.toContain(secreta.roomId)
+
+      const recuperada = await storage.getRoom(secreta.roomId)
+      expect(recuperada?.roomId).toBe(secreta.roomId)
+      expect(recuperada?.private).toBe(true)
+    })
+
     it('getRoomsWithExpiredDeadline respeita deadline, fase e pause', async () => {
       const past = await storage.createRoom(createInput())
       await storage.setRoom(playingWithDeadline(past, Date.now() - 1000))

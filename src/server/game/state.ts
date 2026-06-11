@@ -14,6 +14,7 @@ type CreateRoomInput = {
   turnTimeLimitSec?: number | null
   deck?: string
   arena?: string
+  private?: boolean
 }
 
 export function createEmptyRoom(input: CreateRoomInput): GameState {
@@ -54,6 +55,7 @@ export function createEmptyRoom(input: CreateRoomInput): GameState {
     roundNumber: 0,
     roundStartedAt: null,
     spectators: [],
+    private: input.private ?? false,
   }
 }
 

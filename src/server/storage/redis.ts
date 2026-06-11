@@ -94,7 +94,11 @@ export class RedisStorage implements Storage {
       const multi = c.multi()
       const stored = { ...state, log: trimLog(state.log, STORED_LOG_LIMIT) }
       multi.set(ROOM_KEY(state.roomId), JSON.stringify(stored), { PX: ROOM_TTL_MS })
-      multi.hSet(SUMMARIES_KEY, state.roomId, JSON.stringify(summarize(state)))
+      if (state.private) {
+        multi.hDel(SUMMARIES_KEY, state.roomId)
+      } else {
+        multi.hSet(SUMMARIES_KEY, state.roomId, JSON.stringify(summarize(state)))
+      }
       if (isActiveDeadline(state)) {
         multi.zAdd(DEADLINES_KEY, { score: state.turnDeadlineAt!, value: state.roomId })
       } else {
