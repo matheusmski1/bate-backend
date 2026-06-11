@@ -10,24 +10,7 @@ export function isEndPhase(phase: GamePhase): boolean {
 }
 
 export function isBoardPhase(phase: GamePhase): boolean {
-  return phase === 'playing' || phase === 'bate-called' || phase === 'effect-pending'
-}
-
-export function boardRevealSnapshot(endState: GameState, prevPhase: GamePhase): GameState {
-  const last = endState.log[endState.log.length - 1]
-  const log = last && last.type === 'round-end' ? endState.log.slice(0, -1) : endState.log
-  return { ...endState, phase: prevPhase, turnDeadlineAt: null, log }
-}
-
-export type EndRevealPlan =
-  | { reveal: false }
-  | { reveal: true; snapshot: GameState }
-
-export function planEndReveal(prevPhase: GamePhase, next: GameState): EndRevealPlan {
-  if (isBoardPhase(prevPhase) && isEndPhase(next.phase)) {
-    return { reveal: true, snapshot: boardRevealSnapshot(next, prevPhase) }
-  }
-  return { reveal: false }
+  return phase === 'playing' || phase === 'bate-called' || phase === 'effect-pending' || phase === 'final-snap'
 }
 
 type CreateRoomInput = {

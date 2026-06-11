@@ -17,6 +17,7 @@ export type GamePhase =
   | 'playing'
   | 'effect-pending'
   | 'bate-called'
+  | 'final-snap'
   | 'round-end'
   | 'match-end'
 
