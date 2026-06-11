@@ -1,4 +1,7 @@
 import type { GameState, RedactedCard, RedactedPlayer, RedactedState } from '@/types/shared'
+import { trimLog } from './state'
+
+const BROADCAST_LOG_LIMIT = 40
 
 export function redactStateForPlayer(state: GameState, viewerId: string, asSpectator = false): RedactedState {
   const revealAll = asSpectator || state.phase === 'round-end' || state.phase === 'match-end'
@@ -18,5 +21,6 @@ export function redactStateForPlayer(state: GameState, viewerId: string, asSpect
     ...rest,
     players,
     deckCount: state.deck.length,
+    log: trimLog(state.log, BROADCAST_LOG_LIMIT),
   }
 }

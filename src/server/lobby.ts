@@ -31,12 +31,28 @@ export const lobby = {
     return getStorage().listRooms()
   },
 
+  getRoomsWithExpiredDeadline(now: number): Promise<GameState[]> {
+    return getStorage().getRoomsWithExpiredDeadline(now)
+  },
+
   bindSocket(socketId: string, roomId: string, playerId: string): Promise<void> {
     return getStorage().bindSocket(socketId, roomId, playerId)
   },
 
   releaseSocket(socketId: string): Promise<SocketBinding | undefined> {
     return getStorage().releaseSocket(socketId)
+  },
+
+  setPlayerRoom(playerId: string, roomId: string): Promise<void> {
+    return getStorage().setPlayerRoom(playerId, roomId)
+  },
+
+  getPlayerRoom(playerId: string): Promise<string | undefined> {
+    return getStorage().getPlayerRoom(playerId)
+  },
+
+  clearPlayerRoom(playerId: string): Promise<void> {
+    return getStorage().clearPlayerRoom(playerId)
   },
 
   setDrawnCard(playerId: string, entry: DrawnCacheEntry): Promise<void> {

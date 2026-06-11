@@ -9,6 +9,8 @@ import { lobby } from './lobby'
 import { consume as consumeRate, release as releaseRate } from './rate-limit'
 import { log } from './logger'
 import { audit, recent as recentAudit, summary as auditSummary } from './audit'
+import { metrics } from './metrics'
+import { DASHBOARD_HTML } from './dashboard'
 import { signGuestToken, sessionCookie, readSessionCookie, verifyToken } from './auth'
 import { AppDataSource } from './db/data-source'
 import { ensureUser } from './db/users'
@@ -17,6 +19,7 @@ import { seedDefaultArenas, backfillDefaultArenasToAllUsers } from './db/seed-ar
 import { listDecksForUser, equipDeckForUser } from './db/decks'
 import { listArenasForUser, equipArenaForUser } from './db/arenas'
 import { removePlayerMidGame, discardDrawnCard, skipEffect, autoPlayExpiredTurn } from './game/engine'
+import { markDisconnected, rebindSocket, shouldExpireIdleRoom, lastActivityAt } from './game/state'
 
 const port = Number(process.env.PORT ?? 3001)
 const corsOrigin = process.env.CORS_ORIGIN ?? '*'
@@ -34,8 +37,8 @@ function isOriginAllowed(origin: string | undefined): boolean {
   return ALLOWED_ORIGINS.includes(origin)
 }
 const RECONNECT_GRACE_MS = 30_000
-const IDLE_ROOM_MS = 5 * 60 * 1000
-const CLEANUP_INTERVAL_MS = 30_000
+const IDLE_ROOM_MS = Number(process.env.ROOM_IDLE_MS ?? 5 * 60 * 1000)
+const CLEANUP_INTERVAL_MS = Number(process.env.ROOM_CLEANUP_INTERVAL_MS ?? 30_000)
 
 function corsHeaders(req: IncomingMessage): Record<string, string> {
   const origin = req.headers.origin
@@ -189,6 +192,55 @@ const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
     sendJson(req, res, 200, { summary: auditSummary(), recent: recentAudit(50) })
     return
   }
+  if (req.url === '/health/metrics') {
+    lobby.listRooms()
+      .then(rooms => sendJson(req, res, 200, { ...metrics.snapshot(), rooms: rooms.length }))
+      .catch(() => sendJson(req, res, 200, metrics.snapshot()))
+    return
+  }
+  if (req.url === '/health/dashboard') {
+    void (async () => {
+      const summaries = await lobby.listRooms()
+      const rooms = []
+      for (const summary of summaries.slice(0, 50)) {
+        const room = await lobby.getRoom(summary.roomId)
+        if (!room) continue
+        const turnPlayerId = room.players[room.turn]?.id ?? null
+        rooms.push({
+          roomId: room.roomId,
+          name: room.name,
+          phase: room.phase,
+          paused: room.paused,
+          roundNumber: room.roundNumber,
+          roundStartedAt: room.roundStartedAt,
+          turnDeadlineAt: room.turnDeadlineAt,
+          maxPlayers: room.maxPlayers,
+          spectators: room.spectators?.length ?? 0,
+          players: room.players.map(p => ({
+            name: p.name,
+            connected: p.connected,
+            score: p.score,
+            isTurn: p.id === turnPlayerId,
+          })),
+        })
+      }
+      sendJson(req, res, 200, {
+        ...metrics.snapshot(),
+        totals: {
+          rooms: summaries.length,
+          players: summaries.reduce((a, s) => a + s.playerCount, 0),
+          spectators: summaries.reduce((a, s) => a + s.spectatorCount, 0),
+        },
+        rooms,
+      })
+    })().catch(() => sendJson(req, res, 500, { error: 'SERVER_ERROR' }))
+    return
+  }
+  if (req.url === '/dashboard') {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', ...corsHeaders(req) })
+    res.end(DASHBOARD_HTML)
+    return
+  }
   if (req.url === '/') {
     res.writeHead(200, { 'Content-Type': 'text/plain' })
     res.end('Bate backend OK — Socket.io endpoint em /socket.io/')
@@ -286,6 +338,33 @@ io.use((socket, next) => {
 
 io.on('connection', socket => {
   log.info('socket', 'connected', { socket: socket.id })
+
+  const reconnectingPlayerId = socket.data.playerId as string | undefined
+  if (reconnectingPlayerId) {
+    void (async () => {
+      const roomId = await lobby.getPlayerRoom(reconnectingPlayerId)
+      if (!roomId) return
+      await lobby.withRoomLock(roomId, async () => {
+        const room = await lobby.getRoom(roomId)
+        if (!room || !room.players.some(p => p.id === reconnectingPlayerId)) {
+          await lobby.clearPlayerRoom(reconnectingPlayerId)
+          return
+        }
+        const pending = pendingDisconnects.get(reconnectingPlayerId)
+        if (pending) {
+          clearTimeout(pending)
+          pendingDisconnects.delete(reconnectingPlayerId)
+        }
+        const next = rebindSocket(room, reconnectingPlayerId, socket.id)
+        await lobby.setRoom(next)
+        socket.join(roomId)
+        await lobby.bindSocket(socket.id, roomId, reconnectingPlayerId)
+        log.info('reconnect', 'auto-rebind', { player: reconnectingPlayerId, room: roomId, socket: socket.id })
+        broadcastRoom(io, next)
+      })
+    })().catch(err => log.error('reconnect', 'auto-rebind failed', { error: err instanceof Error ? err.message : 'UNKNOWN' }))
+  }
+
   socket.use(([eventName], next) => {
     const event = typeof eventName === 'string' ? eventName : '__global'
     if (!consumeRate(socket.id, event)) {
@@ -316,10 +395,9 @@ io.on('connection', socket => {
       }
       const player = room.players.find(p => p.id === entry.playerId)
       if (!player || player.socketId !== socket.id) return
-      player.connected = false
-      player.disconnectedAt = Date.now()
-      await lobby.setRoom(room)
-      broadcastRoom(io, room)
+      const next = markDisconnected(room, entry.playerId, Date.now())
+      await lobby.setRoom(next)
+      broadcastRoom(io, next)
     })
 
     const existing = pendingDisconnects.get(entry.playerId)
@@ -364,10 +442,10 @@ setInterval(async () => {
   for (const summary of summaries) {
     const room = await lobby.getRoom(summary.roomId)
     if (!room) continue
-    const lastActivity = Math.max(room.createdAt, ...room.log.map(l => l.timestamp))
-    const idleMs = now - lastActivity
-    if (idleMs > IDLE_ROOM_MS) {
-      log.warn('cleanup', 'expiring idle room', { room: summary.roomId, idleSec: Math.round(idleMs / 1000), phase: room.phase, players: room.players.length })
+    const isConnected = (socketId: string | null) => !!socketId && io.sockets.sockets.has(socketId)
+    if (shouldExpireIdleRoom(room, now, IDLE_ROOM_MS, isConnected)) {
+      const idleSec = Math.round((now - lastActivityAt(room)) / 1000)
+      log.warn('cleanup', 'expiring idle room', { room: summary.roomId, idleSec, phase: room.phase, players: room.players.length })
       for (const player of room.players) {
         if (player.socketId && io.sockets.sockets.has(player.socketId)) {
           io.to(player.socketId).emit('room:expired', {
@@ -386,22 +464,14 @@ setInterval(async () => {
 const TURN_TIMER_INTERVAL_MS = 2_000
 
 setInterval(async () => {
-  const now = Date.now()
-  const summaries = await lobby.listRooms()
-  for (const summary of summaries) {
-    const room = await lobby.getRoom(summary.roomId)
-    if (!room) continue
-    if (room.paused) continue
-    if (room.turnDeadlineAt === null) continue
-    if (room.turnDeadlineAt > now) continue
-    const activePhases = ['playing', 'bate-called', 'effect-pending']
-    if (!activePhases.includes(room.phase)) continue
-    await lobby.withRoomLock(summary.roomId, async () => {
-      const r2 = await lobby.getRoom(summary.roomId)
+  const due = await lobby.getRoomsWithExpiredDeadline(Date.now())
+  for (const candidate of due) {
+    await lobby.withRoomLock(candidate.roomId, async () => {
+      const r2 = await lobby.getRoom(candidate.roomId)
       if (!r2 || r2.paused || r2.turnDeadlineAt === null || r2.turnDeadlineAt > Date.now()) return
       const playerId = r2.players[r2.turn]?.id
       if (!playerId) return
-      log.warn('turn-timer', 'expired — auto-action', { room: summary.roomId, player: playerId, phase: r2.phase })
+      log.warn('turn-timer', 'expired — auto-action', { room: candidate.roomId, player: playerId, phase: r2.phase })
       let next = r2
       if (r2.phase === 'effect-pending' && r2.pendingEffect?.playerId === playerId) {
         next = skipEffect(r2, playerId)

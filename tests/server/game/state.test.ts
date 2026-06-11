@@ -20,6 +20,17 @@ describe('createEmptyRoom', () => {
     expect(state.discard).toEqual([])
     expect(state.maxPlayers).toBe(4)
   })
+
+  it('inicia com pendingJoins vazio', () => {
+    const state = createEmptyRoom({
+      roomId: 'r1',
+      name: 'm',
+      hostId: 'p1',
+      hostName: 'Matheus',
+      maxPlayers: 4,
+    })
+    expect(state.pendingJoins).toEqual([])
+  })
 })
 
 describe('startRound', () => {

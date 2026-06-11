@@ -13,6 +13,7 @@ export const RoomCreateSchema = z.object({
   hostName: playerName,
   maxPlayers: z.union([z.literal(2), z.literal(3), z.literal(4)]),
   turnTimeLimitSec: z.number().int().min(0).max(600).nullable().optional(),
+  private: z.boolean().optional(),
 })
 
 export const RoomJoinSchema = z.object({

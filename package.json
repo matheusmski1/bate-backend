@@ -9,11 +9,15 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:run": "vitest run",
+    "test:redis": "TEST_REDIS_URL=redis://localhost:6379 vitest run",
+    "test:e2e": "TEST_E2E=1 vitest run tests/e2e",
     "typeorm": "node --import tsx ./node_modules/typeorm/cli.js",
     "migration:generate": "node --import tsx ./node_modules/typeorm/cli.js migration:generate -d src/server/db/data-source.ts",
     "migration:run": "node --import tsx ./node_modules/typeorm/cli.js migration:run -d src/server/db/data-source.ts",
     "migration:revert": "node --import tsx ./node_modules/typeorm/cli.js migration:revert -d src/server/db/data-source.ts",
-    "seed": "tsx src/server/db/seed.ts"
+    "seed": "tsx src/server/db/seed.ts",
+    "loadtest": "tsx scripts/loadtest/run.ts",
+    "loadtest:idle": "tsx scripts/loadtest/idle-scenario.ts"
   },
   "engines": {
     "node": ">=22"
@@ -32,6 +36,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^22.18.13",
     "@types/pg": "^8.20.0",
+    "socket.io-client": "^4.8.3",
     "tsx": "^4.20.7",
     "typescript": "^6.0.3",
     "vitest": "^4.1.7"

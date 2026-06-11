@@ -12,6 +12,7 @@ export type CreateRoomInput = {
   turnTimeLimitSec?: number | null
   deck?: string
   arena?: string
+  private?: boolean
 }
 
 export type JoinInput = { playerId: string; playerName: string; deck?: string; arena?: string }
@@ -24,9 +25,14 @@ export interface Storage {
   getRoom(roomId: string): Promise<GameState | undefined>
   setRoom(state: GameState): Promise<void>
   listRooms(): Promise<RoomSummary[]>
+  getRoomsWithExpiredDeadline(now: number): Promise<GameState[]>
 
   bindSocket(socketId: string, roomId: string, playerId: string): Promise<void>
   releaseSocket(socketId: string): Promise<SocketBinding | undefined>
+
+  setPlayerRoom(playerId: string, roomId: string): Promise<void>
+  getPlayerRoom(playerId: string): Promise<string | undefined>
+  clearPlayerRoom(playerId: string): Promise<void>
 
   setDrawnCard(playerId: string, entry: DrawnCacheEntry): Promise<void>
   getDrawnCard(playerId: string): Promise<DrawnCacheEntry | undefined>
