@@ -2,6 +2,7 @@ import type { Card, GameState, GameAction, GameActionType } from '@/types/shared
 import { scoreHand, isMatchEnd } from './scoring'
 
 const SNAP_WINDOW_MS = 3000
+const FINAL_SNAP_WINDOW_MS = Number(process.env.FINAL_SNAP_WINDOW_MS ?? 2500)
 const MAX_HAND_SIZE = 10
 
 function logEvent(state: GameState, type: GameActionType, actorId: string, payload?: Record<string, unknown>): GameAction[] {
@@ -363,6 +364,38 @@ export function autoPlayExpiredTurn(state: GameState): { state: GameState; reaso
   const log2 = logEvent(afterDraw, 'discard', playerId, { cardId: card.id, rank: card.rank, auto: true })
   const next = advanceTurn({ ...afterDraw, discard, log: log2, snapWindow: null })
   return { state: next, reason: 'auto-draw-discard' }
+}
+
+export function tallyRound(state: GameState): GameState {
+  const players = state.players.map(p => ({ ...p, score: p.score + scoreHand(p.hand) }))
+  return {
+    ...state,
+    players,
+    phase: isMatchEnd(players) ? 'match-end' : 'round-end',
+    snapWindow: null,
+    turnDeadlineAt: null,
+    paused: false,
+    pausedRemainingMs: null,
+    log: [...state.log, { timestamp: Date.now(), type: 'round-end', actorId: '', payload: { reason: 'bate' } }],
+  }
+}
+
+export function openFinalSnapWindow(state: GameState, windowMs: number = FINAL_SNAP_WINDOW_MS): GameState {
+  const top = state.discard[state.discard.length - 1]
+  return {
+    ...state,
+    phase: 'final-snap',
+    turnsRemaining: 0,
+    turnDeadlineAt: null,
+    paused: false,
+    pausedRemainingMs: null,
+    snapWindow: top ? { openedAt: Date.now(), durationMs: windowMs, discardedCardId: top.id } : null,
+  }
+}
+
+export function extendFinalSnapWindow(state: GameState, extendMs: number): GameState {
+  if (!state.snapWindow) return state
+  return { ...state, snapWindow: { ...state.snapWindow, openedAt: Date.now(), durationMs: extendMs } }
 }
 
 export function finishRound(state: GameState): GameState {
