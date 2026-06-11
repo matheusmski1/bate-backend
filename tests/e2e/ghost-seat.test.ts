@@ -68,4 +68,13 @@ run('SALA-2: assento fantasma', () => {
     hostSocket.disconnect(); guestSocket.disconnect(); host2Socket.disconnect()
     await delay(100)
   }, 25000)
+
+  it('voltar pro lobby (lobby:subscribe) libera o assento em waiting', async () => {
+    const { hostSocket, guestSocket } = await roomWithGuest()
+    const left = waitForRoomState(hostSocket, semGuest, 4000)
+    guestSocket.emit('lobby:subscribe')
+    await left
+    hostSocket.disconnect(); guestSocket.disconnect()
+    await delay(100)
+  }, 25000)
 })

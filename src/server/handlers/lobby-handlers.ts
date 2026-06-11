@@ -82,6 +82,17 @@ export async function leaveRoom(io: SocketServer, socket: Socket, roomId: string
 
 export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
   socket.on('lobby:subscribe', async () => {
+    const playerId = (socket.data as { playerId?: string } | undefined)?.playerId
+    if (playerId) {
+      const currentRoomId = await lobby.getPlayerRoom(playerId)
+      if (currentRoomId) {
+        const room = await lobby.getRoom(currentRoomId)
+        const stillSeated = room
+          && (room.phase === 'waiting' || room.phase === 'round-end')
+          && room.players.some(p => p.id === playerId)
+        if (stillSeated) await leaveRoom(io, socket, currentRoomId, playerId)
+      }
+    }
     socket.join('lobby')
     socket.emit('lobby:update', { rooms: await lobby.listRooms() })
   })
