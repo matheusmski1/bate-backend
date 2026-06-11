@@ -3,6 +3,7 @@ import type { GamePhase, GameState } from '@/types/shared'
 import { lobby } from '../lobby'
 import { broadcastRoom } from './broadcast'
 import { planEndReveal } from '../game/state'
+import { log } from '../logger'
 
 const DEFAULT_REVEAL_MS = Number(process.env.ROUND_END_REVEAL_MS ?? 2500)
 
@@ -13,11 +14,13 @@ export function scheduleEndReveal(
   expectedRoundNumber: number,
   delayMs: number = DEFAULT_REVEAL_MS,
 ): void {
-  setTimeout(async () => {
-    const current = await lobby.getRoom(roomId)
-    if (!current) return
-    if (current.phase !== expectedPhase || current.roundNumber !== expectedRoundNumber) return
-    broadcastRoom(io, current)
+  setTimeout(() => {
+    void (async () => {
+      const current = await lobby.getRoom(roomId)
+      if (!current) return
+      if (current.phase !== expectedPhase || current.roundNumber !== expectedRoundNumber) return
+      broadcastRoom(io, current)
+    })().catch(err => log.error('end-reveal', 'scheduleEndReveal failed', { roomId, error: err instanceof Error ? err.message : 'UNKNOWN' }))
   }, delayMs)
 }
 
