@@ -4,10 +4,7 @@ import type { GameState, Player, RoomSummary } from '@/types/shared'
 import { createEmptyRoom, trimLog } from '../game/state'
 import { log } from '../logger'
 import type { Storage, CreateRoomInput, JoinInput, SocketBinding, DrawnCacheEntry } from './types'
-
-function generateRoomId(): string {
-  return randomUUID().slice(0, 6).toUpperCase()
-}
+import { generateUniqueRoomId } from './room-id'
 
 function summarize(state: GameState): RoomSummary {
   return {
@@ -94,7 +91,11 @@ export class RedisStorage implements Storage {
       const multi = c.multi()
       const stored = { ...state, log: trimLog(state.log, STORED_LOG_LIMIT) }
       multi.set(ROOM_KEY(state.roomId), JSON.stringify(stored), { PX: ROOM_TTL_MS })
-      multi.hSet(SUMMARIES_KEY, state.roomId, JSON.stringify(summarize(state)))
+      if (state.private) {
+        multi.hDel(SUMMARIES_KEY, state.roomId)
+      } else {
+        multi.hSet(SUMMARIES_KEY, state.roomId, JSON.stringify(summarize(state)))
+      }
       if (isActiveDeadline(state)) {
         multi.zAdd(DEADLINES_KEY, { score: state.turnDeadlineAt!, value: state.roomId })
       } else {
@@ -105,7 +106,7 @@ export class RedisStorage implements Storage {
   }
 
   async createRoom(input: CreateRoomInput): Promise<GameState> {
-    const roomId = generateRoomId()
+    const roomId = await generateUniqueRoomId(async id => (await this.getRoom(id)) !== undefined)
     const state = createEmptyRoom({ roomId, ...input })
     await this.persist(state)
     return state

@@ -88,6 +88,7 @@ export type GameState = {
   roundNumber: number
   roundStartedAt: number | null
   spectators: Spectator[]
+  private?: boolean
 }
 
 export type RedactedCard = { id: string; rank: Rank; suit: Suit | null } | { id: string; hidden: true }
