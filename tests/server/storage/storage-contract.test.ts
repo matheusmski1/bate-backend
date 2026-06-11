@@ -85,6 +85,12 @@ function runStorageContract(label: string, makeStorage: () => Storage, teardown?
       expect(recuperada?.private).toBe(true)
     })
 
+    it('createRoom nunca colide ids', async () => {
+      const ids = new Set<string>()
+      for (let i = 0; i < 50; i++) ids.add((await storage.createRoom(createInput())).roomId)
+      expect(ids.size).toBe(50)
+    })
+
     it('getRoomsWithExpiredDeadline respeita deadline, fase e pause', async () => {
       const past = await storage.createRoom(createInput())
       await storage.setRoom(playingWithDeadline(past, Date.now() - 1000))
