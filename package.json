@@ -16,7 +16,8 @@
     "migration:run": "node --import tsx ./node_modules/typeorm/cli.js migration:run -d src/server/db/data-source.ts",
     "migration:revert": "node --import tsx ./node_modules/typeorm/cli.js migration:revert -d src/server/db/data-source.ts",
     "seed": "tsx src/server/db/seed.ts",
-    "loadtest": "tsx scripts/loadtest/run.ts"
+    "loadtest": "tsx scripts/loadtest/run.ts",
+    "loadtest:idle": "tsx scripts/loadtest/idle-scenario.ts"
   },
   "engines": {
     "node": ">=22"
