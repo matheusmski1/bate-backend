@@ -7,8 +7,8 @@ function card(rank: Card['rank'], suit: Card['suit'] = 'hearts', id = `${rank}-$
 }
 
 function baseState(): GameState {
-  const p1: Player = { id: 'p1', socketId: null, name: 'A', hand: [card('7', 'clubs'), card('K')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default', arena: 'default', arena: 'default', arena: 'default' }
-  const p2: Player = { id: 'p2', socketId: null, name: 'B', hand: [card('7', 'diamonds'), card('3')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default', arena: 'default', arena: 'default', arena: 'default' }
+  const p1: Player = { id: 'p1', socketId: null, name: 'A', hand: [card('7', 'clubs'), card('K')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default' }
+  const p2: Player = { id: 'p2', socketId: null, name: 'B', hand: [card('7', 'diamonds'), card('3')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default' }
   return {
     roomId: 'r1', name: 'm', hostId: 'p1', maxPlayers: 2,
     players: [p1, p2],
@@ -18,7 +18,7 @@ function baseState(): GameState {
     bateCallerId: null, turnsRemaining: null,
     pendingEffect: null,
     snapWindow: { openedAt: Date.now(), durationMs: 3000, discardedCardId: '7-spades' },
-    log: [], createdAt: Date.now(), turnTimeLimitSec: 60, turnDeadlineAt: null, paused: false, pausedRemainingMs: null, roundTurnCount: 0, roundNumber: 1, spectators: [], pendingJoins: [],
+    log: [], createdAt: Date.now(), turnTimeLimitSec: 60, turnDeadlineAt: null, paused: false, pausedRemainingMs: null, roundTurnCount: 0, roundStartedAt: null, roundNumber: 1, spectators: [], pendingJoins: [],
   }
 }
 
