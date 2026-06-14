@@ -19,7 +19,8 @@ import { seedDefaultArenas, backfillDefaultArenasToAllUsers } from './db/seed-ar
 import { listDecksForUser, equipDeckForUser } from './db/decks'
 import { listArenasForUser, equipArenaForUser } from './db/arenas'
 import { removePlayerMidGame, discardDrawnCard, skipEffect, autoPlayExpiredTurn } from './game/engine'
-import { markDisconnected, rebindSocket, shouldExpireIdleRoom, lastActivityAt } from './game/state'
+import { markDisconnected, rebindSocket, lastActivityAt } from './game/state'
+import { sweepRooms } from './game/cleanup'
 
 const port = Number(process.env.PORT ?? 3001)
 const corsOrigin = process.env.CORS_ORIGIN ?? '*'
@@ -435,29 +436,41 @@ io.on('connection', socket => {
 
 setInterval(async () => {
   const now = Date.now()
-  const summaries = await lobby.listRooms()
-  if (summaries.length > 0) {
-    log.info('cleanup', 'tick', { rooms: summaries.length, idleLimitMs: IDLE_ROOM_MS })
-  }
-  for (const summary of summaries) {
-    const room = await lobby.getRoom(summary.roomId)
-    if (!room) continue
-    const isConnected = (socketId: string | null) => !!socketId && io.sockets.sockets.has(socketId)
-    if (shouldExpireIdleRoom(room, now, IDLE_ROOM_MS, isConnected)) {
+  const isConnected = (socketId: string | null) => !!socketId && io.sockets.sockets.has(socketId)
+  const result = await sweepRooms({
+    listRooms: () => lobby.listRooms(),
+    getRoom: roomId => lobby.getRoom(roomId),
+    removeRoom: roomId => lobby.removeRoom(roomId),
+    now,
+    idleLimitMs: IDLE_ROOM_MS,
+    isConnected,
+    onIdleExpire: room => {
       const idleSec = Math.round((now - lastActivityAt(room)) / 1000)
-      log.warn('cleanup', 'expiring idle room', { room: summary.roomId, idleSec, phase: room.phase, players: room.players.length })
+      log.warn('cleanup', 'expiring idle room', { room: room.roomId, idleSec, phase: room.phase, players: room.players.length })
       for (const player of room.players) {
         if (player.socketId && io.sockets.sockets.has(player.socketId)) {
           io.to(player.socketId).emit('room:expired', {
-            roomId: summary.roomId,
+            roomId: room.roomId,
             reason: 'idle',
             message: `Sala fechada por inatividade (${Math.floor(IDLE_ROOM_MS / 60000)}min sem ações).`,
           })
         }
       }
-      await lobby.removeRoom(summary.roomId)
-      io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
-    }
+    },
+  })
+  if (result.scanned > 0) {
+    log.info('cleanup', 'tick', {
+      rooms: result.scanned,
+      idleLimitMs: IDLE_ROOM_MS,
+      expired: result.expired.length,
+      orphaned: result.orphaned.length,
+    })
+  }
+  if (result.orphaned.length > 0) {
+    log.warn('cleanup', 'summaries órfãos removidos (sala sumiu, summary ficou)', { rooms: result.orphaned })
+  }
+  if (result.expired.length > 0 || result.orphaned.length > 0) {
+    io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
   }
 }, CLEANUP_INTERVAL_MS)
 

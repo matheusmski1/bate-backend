@@ -8,9 +8,9 @@ function card(rank: Card['rank'], suit: Card['suit'] = 'hearts', id = `${rank}-$
 
 function threePlayerState(turn = 0): GameState {
   const players: Player[] = [
-    { id: 'p1', socketId: null, name: 'A', hand: [card('K'), card('A')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default', arena: 'default', arena: 'default', arena: 'default' },
-    { id: 'p2', socketId: null, name: 'B', hand: [card('5'), card('10')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default', arena: 'default', arena: 'default', arena: 'default' },
-    { id: 'p3', socketId: null, name: 'C', hand: [card('7'), card('8')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default', arena: 'default', arena: 'default', arena: 'default' },
+    { id: 'p1', socketId: null, name: 'A', hand: [card('K'), card('A')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default' },
+    { id: 'p2', socketId: null, name: 'B', hand: [card('5'), card('10')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default' },
+    { id: 'p3', socketId: null, name: 'C', hand: [card('7'), card('8')], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [], deck: 'default', arena: 'default' },
   ]
   return {
     roomId: 'r1', name: 'm', hostId: 'p1', maxPlayers: 4,
@@ -18,7 +18,7 @@ function threePlayerState(turn = 0): GameState {
     turn, phase: 'playing',
     bateCallerId: null, turnsRemaining: null,
     pendingEffect: null, snapWindow: null,
-    log: [], createdAt: Date.now(), turnTimeLimitSec: 60, turnDeadlineAt: null, paused: false, pausedRemainingMs: null, roundTurnCount: 0, roundNumber: 1, spectators: [], pendingJoins: [],
+    log: [], createdAt: Date.now(), turnTimeLimitSec: 60, turnDeadlineAt: null, paused: false, pausedRemainingMs: null, roundTurnCount: 0, roundStartedAt: null, roundNumber: 1, spectators: [], pendingJoins: [],
   }
 }
 

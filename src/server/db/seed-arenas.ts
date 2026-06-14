@@ -28,7 +28,7 @@ export async function seedDefaultArenas(): Promise<{ inserted: number; updated: 
 export async function backfillDefaultArenasToAllUsers(): Promise<{ granted: number }> {
   const defaultArenaIds = (await AppDataSource.getRepository(Arena).find({ where: { unlockType: 'default' } })).map(a => a.id)
   if (defaultArenaIds.length === 0) return { granted: 0 }
-  const users = await AppDataSource.getRepository(User).find({ select: ['id'] })
+  const users = await AppDataSource.getRepository(User).find({ select: { id: true } })
   const userArenaRepo = AppDataSource.getRepository(UserArena)
   let granted = 0
   for (const user of users) {

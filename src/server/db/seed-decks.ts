@@ -28,7 +28,7 @@ export async function seedDefaultDecks(): Promise<{ inserted: number; updated: n
 export async function backfillDefaultDecksToAllUsers(): Promise<{ granted: number }> {
   const defaultDeckIds = (await AppDataSource.getRepository(Deck).find({ where: { unlockType: 'default' } })).map(d => d.id)
   if (defaultDeckIds.length === 0) return { granted: 0 }
-  const users = await AppDataSource.getRepository(User).find({ select: ['id'] })
+  const users = await AppDataSource.getRepository(User).find({ select: { id: true } })
   const userDeckRepo = AppDataSource.getRepository(UserDeck)
   let granted = 0
   for (const user of users) {
