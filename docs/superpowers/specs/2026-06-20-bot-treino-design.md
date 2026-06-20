@@ -16,13 +16,14 @@ Escolhido sobre "engine offline no cliente" porque o engine é **puro e server-a
 
 ### Regra anti-trapaça (central)
 
-O bot roda no servidor com o `GameState` **completo** (vê todas as mãos). Pra ser justo, ele só lê o rank de cartas que **legalmente** conheceria, via um *knowledge set* por bot (`Set` de `owner:cardId`) que cresce só quando o bot faz ação de informação:
+O bot roda no servidor com o `GameState` **completo** (vê todas as mãos). Pra ser justo, ele só lê o rank de cartas que **legalmente** conheceria. A memória é uma lista de `{ cardId, rank, turn }` — **chaveada por `cardId`, não por slot** — que cresce só quando o bot faz ação de informação:
 
-- início da rodada → semeia as cartas do `revealedToSelf` (as 2 iniciais, `state.ts:117`)
-- jogou 10 (peek-own) → +1 carta própria
-- jogou J (peek-other) → +1 carta de oponente
-- jogou Q (swap) → conhece a carta que pegou, esquece a que deu
-- slot trocado/snapado (por qualquer um) → **invalida** o conhecimento daquele slot
+- início da rodada → semeia os ranks das cartas do `revealedToSelf` (as 2 iniciais, `state.ts:117`; o Fácil semeia só 1)
+- jogou 10 (peek-own) → aprende +1 carta própria
+- jogou J (peek-other) → aprende +1 carta de oponente
+- jogou Q (swap) → o conhecimento segue a `cardId`: o bot continua sabendo o rank da carta que **deu** (agora na mão do oponente) e só sabe a que **pegou** se já tinha espiado ela. O engine retorna `revealed:[]` no swap, então não há aprendizado novo — coerente com o anti-trapaça.
+
+Como o conhecimento é chaveado por `cardId`, ele **sobrevive a swaps e cortes automaticamente** (a carta carrega o que se sabe dela aonde for); cartas que saem de todas as mãos são podadas (`pruneAbsent`). O Fácil **esquece** ranks aprendidos há mais de N turnos (`decay`). A consulta `knownRank` devolve `null` pra qualquer carta não-aprendida (ou esquecida) — é assim que o anti-trapaça é garantido **por construção**: a visão que as decisões recebem nunca expõe um rank que o bot não conhece legalmente.
 
 A memória vive num **store por sala** (espelhando o padrão `drawnCard` da interface `Storage`), **fora** do `GameState` redatado — nunca vaza pro cliente.
 
@@ -30,7 +31,7 @@ A memória vive num **store por sala** (espelhando o padrão `drawnCard` da inte
 
 | | Fácil | Médio | Difícil |
 |---|---|---|---|
-| Memória | esquece após ~2 turnos; semeia 1 das 2 iniciais | retém a rodada | retém tudo + rastreia ranks que saíram no descarte |
+| Memória | esquece após ~2 turnos; semeia 1 das 2 iniciais | retém a rodada inteira | retém tudo (sem decay) |
 | Snap | erra/ignora bastante | razoável | alto acerto |
 | Bate | limiar frouxo, às vezes tarde | ok | limiar afiado |
 | "Pensar" / reação | 1.5–2.5s | 1–1.5s | 0.5–1s |
@@ -60,14 +61,14 @@ De `scoring.ts`: `A=1 … 10=10, J=11, Q=12, K=-3, JOKER=-6`. **K e JOKER são n
 
 ### 2. Cérebro — `game/bot/` (puro, sem socket, 100% testável)
 
-Toda decisão é função pura `(belief, publicState) → action`. O `publicState` é `redactStateForPlayer(state, botId)` — **exatamente** a visão legal do bot: a redação já revela a própria mão só onde `revealedToSelf` cobre (`redact.ts:11`) e esconde as mãos alheias. A `BotMemory` é o **overlay** sobre isso: soma o que a redação esconde (cartas de oponente vistas via J/Q, ranks que saíram no descarte) e modela o **esquecimento** (no Fácil, pode largar cartas próprias abaixo do que `revealedToSelf` diz).
+Toda decisão é função pura `(view, …) → action`. A `BotView` é montada por `buildBotView(state, botId, memory, level)`: pra cada carta de cada mão ela expõe `{ cardId, index, rank }` onde `rank` vem de `knownRank` (a própria mão revela só o `revealedToSelf`/o que o bot espiou; mãos alheias só o que o bot viu via J/Q). Tudo que o bot não conhece legalmente vem como `rank: null` — então as decisões **não têm como trapacear**.
 
-- **`bot/belief.ts`** — `BotMemory` (cartas de oponente conhecidas + ranks de descarte vistos + overlay de esquecimento) e as transições: `seedFromInitialPeek`, `learnOwnCard`, `learnOtherCard`, `applySwap`, `invalidateSlot`, `decay(level)`. `knownCard(redactedState, memory, owner, cardId): Rank | null` resolve juntando a visão redatada (mão própria) com o overlay (mãos alheias).
+- **`bot/belief.ts`** — `BotMemory` (`known: { cardId, rank, turn }[]` + `lastSnapDiscardId`) chaveado por `cardId`, e as transições: `seedFromInitialPeek`, `learnCard`, `pruneAbsent`, `knownRank(mem, cardId, currentTurn, level): Rank | null` (aplica o `decay` do nível) e `buildBotView`. O Fácil esquece via `decay`; conhecimento sobrevive a swaps/cortes porque é por `cardId`.
 - **`bot/decide-turn.ts`** — comprou carta `C`: acha minha carta conhecida de **maior valor** `H`. Se `value(C) < value(H)` → `swap` no slot de `H`. Senão, se `C` tem efeito útil (10/J/Q) e há slot desconhecido a explorar → `discard` usando efeito. Senão `discard` simples. Nunca troca/descarta K/JOKER conhecido.
 - **`bot/decide-effect.ts`** — 10: espia slot próprio desconhecido. J: espia slot de oponente desconhecido. Q: troca minha **maior** conhecida pela menor conhecida do oponente (ou aposta num desconhecido, conforme nível).
 - **`bot/decide-snap.ts`** — tenho slot que **sei** ser igual ao topo do descarte? → snap. Nível modula acerto e se arrisca em desconhecido.
 - **`bot/decide-bate.ts`** — estima a mão (conhecidas exato + desconhecidas no valor esperado); bate se `estimativa ≤ limiar(level)` e for estrategicamente bom.
-- **`bot/index.ts`** — orquestrador `nextBotAction(redactedState, memory, level): BotAction` que despacha pra decisão certa conforme a fase.
+- **`bot/index.ts`** — `runBotTurn(state, botId, mem, level)` compõe um turno inteiro do bot via funções de engine puras (bate → draw → swap/discard → resolve/skip do efeito que sobra), devolvendo `{ state, memory }`; e `planBotAction(state, memories, hasConnectedHuman)` escolhe a única próxima ação pro driver (confirmar peek → snap → turno), ou `null`.
 
 ### 3. Driver — `game/bot/driver.ts` (única parte com efeito)
 
@@ -88,9 +89,9 @@ Novos métodos, espelhando `setDrawnCard/getDrawnCard/clearDrawnCard`:
 ```
 setBotMemory(roomId, botId, mem): Promise<void>
 getBotMemory(roomId, botId): Promise<BotMemory | undefined>
-clearBotMemory(roomId): Promise<void>   // limpa todos os bots da sala (round-end / removeRoom)
+clearBotMemory(roomId): Promise<void>   // limpa todos os bots da sala
 ```
-Implementado em `MemoryStorage` e `RedisStorage`. Limpo em `finishRound`/`startRound` (re-semeia) e em `removeRoom`.
+Implementado em `MemoryStorage` e `RedisStorage`. **Atenção:** `finishRound`/`startRound` são funções **puras** (sem I/O) — a limpeza de memória é chamada no **handler** `game-handlers.ts` (na transição de rodada, ao lado do `clearPeekConfirmations`) e no `leaveRoom` quando sobram só bots. Não vai no `lobby.ts` (pass-through burro) nem dentro das funções puras.
 
 ### 5. Handler de criação — `handlers/lobby-handlers.ts` + `handlers/schemas.ts`
 
@@ -125,7 +126,7 @@ Humano clica "Treinar" → escolhe N bots + nível
 
 ## Edge cases
 
-- **Humano sai no meio:** `removePlayerMidGame` colapsa a sala (<2 players → round-end/match-end). Sobrando só bots (socketId null), o idle sweep expira a sala (sem socket conectado). Driver para de agir pelo guard de "≥1 humano conectado".
+- **Humano sai no meio:** o `leaveRoom` remove a sala (`removeRoom` + `clearBotMemory`) **explicitamente** quando os jogadores restantes são todos bots. Isso é necessário porque salas de treino são `private:true` e o **idle sweep só varre salas não-privadas** — não dá pra confiar nele aqui. Enquanto há humano e ele só desconecta (sem sair), o driver para de agir pelo guard de "≥1 humano conectado" e a reconexão volta a dirigir.
 - **Pause:** driver não age com `paused: true` (respeita `room:pause` do host).
 - **Bate-called / final-snap:** bots participam normalmente; corte na janela final é reativo (já coberto pelo `decide-snap`).
 - **Bot esvazia a mão no snap:** dispara `bate` automático no engine — sem caminho especial.
