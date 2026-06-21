@@ -3,6 +3,7 @@ import type { GameState } from '@/types/shared'
 import type { Storage } from '@/server/storage/types'
 import { MemoryStorage } from '@/server/storage/memory'
 import { RedisStorage } from '@/server/storage/redis'
+import type { BotMemory } from '@/server/game/bot/belief'
 
 const createInput = (maxPlayers: 2 | 3 | 4 = 4) => ({
   name: 'Mesa',
@@ -133,6 +134,14 @@ function runStorageContract(label: string, makeStorage: () => Storage, teardown?
       expect(await storage.getDrawnCard('p1')).toEqual(entry)
       await storage.clearDrawnCard('p1')
       expect(await storage.getDrawnCard('p1')).toBeUndefined()
+    })
+
+    it('faz roundtrip da memoria do bot e limpa por sala', async () => {
+      const mem: BotMemory = { known: [{ cardId: 'c1', rank: 'K' as const, turn: 3 }], lastSnapDiscardId: null }
+      await storage.setBotMemory('ROOM1', 'bot:ROOM1:0', mem)
+      expect(await storage.getBotMemory('ROOM1', 'bot:ROOM1:0')).toEqual(mem)
+      await storage.clearBotMemory('ROOM1')
+      expect(await storage.getBotMemory('ROOM1', 'bot:ROOM1:0')).toBeUndefined()
     })
 
     it('conta e limpa confirmacoes de peek', async () => {
