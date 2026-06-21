@@ -20,67 +20,62 @@ function pickThinkMs(state: GameState): number {
   return lo + Math.floor(Math.random() * (hi - lo))
 }
 
-export function scheduleBotActions(io: SocketServer, roomId: string): void {
+export function scheduleBotActions(io: SocketServer, state: GameState): void {
+  const roomId = state.roomId
+  if (!state.players.some(p => p.isBot)) return
   const existing = botTimers.get(roomId)
   if (existing) clearTimeout(existing)
 
-  const peek = botTimers.has(roomId)
-  void (async () => {
-    const snapshot = await lobby.getRoom(roomId)
-    if (!snapshot || !snapshot.players.some(p => p.isBot)) return
-    const delay = pickThinkMs(snapshot)
+  const timer = setTimeout(() => {
+    botTimers.delete(roomId)
+    void (async () => {
+      await lobby.withRoomLock(roomId, async () => {
+        const current = await lobby.getRoom(roomId)
+        if (!current || !current.players.some(p => p.isBot)) return
+        const hasHuman = current.players.some(
+          p => !p.isBot && p.socketId !== null && io.sockets.sockets.has(p.socketId),
+        )
+        const memories = new Map<string, BotMemory>()
+        for (const bot of current.players.filter(p => p.isBot)) {
+          memories.set(bot.id, (await lobby.getBotMemory(roomId, bot.id)) ?? seedFromInitialPeek(current, bot.id, levelOf(bot.botLevel)))
+        }
 
-    const timer = setTimeout(() => {
-      botTimers.delete(roomId)
-      void (async () => {
-        await lobby.withRoomLock(roomId, async () => {
-          const state = await lobby.getRoom(roomId)
-          if (!state || !state.players.some(p => p.isBot)) return
-          const hasHuman = state.players.some(
-            p => !p.isBot && p.socketId !== null && io.sockets.sockets.has(p.socketId),
-          )
-          const memories = new Map<string, BotMemory>()
-          for (const bot of state.players.filter(p => p.isBot)) {
-            memories.set(bot.id, (await lobby.getBotMemory(roomId, bot.id)) ?? seedFromInitialPeek(state, bot.id, levelOf(bot.botLevel)))
+        const action = planBotAction(current, memories, hasHuman)
+        if (!action) return
+
+        if (action.kind === 'confirm-peeks') {
+          let count = 0
+          for (const bot of current.players.filter(p => p.isBot)) {
+            count = await lobby.addPeekConfirmation(roomId, bot.id)
           }
-
-          const action = planBotAction(state, memories, hasHuman)
-          if (!action) return
-
-          if (action.kind === 'confirm-peeks') {
-            let count = 0
-            for (const bot of state.players.filter(p => p.isBot)) {
-              count = await lobby.addPeekConfirmation(roomId, bot.id)
-            }
-            if (count >= state.players.length) {
-              await lobby.clearPeekConfirmations(roomId)
-              const next = startTurnTimer({ ...state, phase: 'playing' as const })
-              await lobby.setRoom(next)
-              broadcastRoom(io, next)
-            }
-            return
-          }
-
-          if (action.kind === 'snap') {
-            const top = state.discard[state.discard.length - 1]
-            const next = snapCard(state, action.botId, action.handIndex)
+          if (count >= current.players.length) {
+            await lobby.clearPeekConfirmations(roomId)
+            const next = startTurnTimer({ ...current, phase: 'playing' as const })
             await lobby.setRoom(next)
-            const mem = memories.get(action.botId)!
-            await lobby.setBotMemory(roomId, action.botId, { ...mem, lastSnapDiscardId: top?.id ?? null })
             broadcastRoom(io, next)
-            return
           }
+          return
+        }
 
-          const bot = state.players.find(p => p.id === action.botId)!
+        if (action.kind === 'snap') {
+          const top = current.discard[current.discard.length - 1]
+          const next = snapCard(current, action.botId, action.handIndex)
+          await lobby.setRoom(next)
           const mem = memories.get(action.botId)!
-          const out = runBotTurn(state, action.botId, mem, levelOf(bot.botLevel))
-          await lobby.setRoom(out.state)
-          await lobby.setBotMemory(roomId, action.botId, pruneAbsent(out.memory, out.state))
-          broadcastRoom(io, out.state)
-        })
-      })().catch(err => log.error('bot-driver', 'tick failed', { roomId, error: err instanceof Error ? err.message : 'UNKNOWN' }))
-    }, delay)
+          await lobby.setBotMemory(roomId, action.botId, { ...mem, lastSnapDiscardId: top?.id ?? null })
+          broadcastRoom(io, next)
+          return
+        }
 
-    botTimers.set(roomId, timer)
-  })().catch(err => log.error('bot-driver', 'schedule failed', { roomId, peek, error: err instanceof Error ? err.message : 'UNKNOWN' }))
+        const bot = current.players.find(p => p.id === action.botId)!
+        const mem = memories.get(action.botId)!
+        const out = runBotTurn(current, action.botId, mem, levelOf(bot.botLevel))
+        await lobby.setRoom(out.state)
+        await lobby.setBotMemory(roomId, action.botId, pruneAbsent(out.memory, out.state))
+        broadcastRoom(io, out.state)
+      })
+    })().catch(err => log.error('bot-driver', 'tick failed', { roomId, error: err instanceof Error ? err.message : 'UNKNOWN' }))
+  }, pickThinkMs(state))
+
+  botTimers.set(roomId, timer)
 }

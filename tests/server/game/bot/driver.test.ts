@@ -29,7 +29,7 @@ describe('scheduleBotActions', () => {
   it('nao age quando nao ha humano conectado', async () => {
     const state = { ...practiceRound(['hard']), turn: 1 }
     rooms.set(state.roomId, state)
-    scheduleBotActions(fakeIo([]), state.roomId)
+    scheduleBotActions(fakeIo([]), state)
     await vi.advanceTimersByTimeAsync(5000)
     expect(rooms.get(state.roomId)!.roundTurnCount).toBe(state.roundTurnCount)
   })
@@ -41,7 +41,7 @@ describe('scheduleBotActions', () => {
     state = setHand(state, botId, [card('c0', 'K'), card('c1', '9'), card('c2', '5'), card('c3', '2')], ['c2', 'c3'])
     rooms.set(state.roomId, state)
     botMems.set(`${state.roomId}:${botId}`, seedFromInitialPeek(state, botId, 'hard'))
-    scheduleBotActions(fakeIo(['sock-human']), state.roomId)
+    scheduleBotActions(fakeIo(['sock-human']), state)
     await vi.advanceTimersByTimeAsync(3000)
     const after = rooms.get(state.roomId)!
     expect(after.log.some(l => l.actorId === botId)).toBe(true)
