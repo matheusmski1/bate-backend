@@ -18,7 +18,7 @@ function lowestKnown(hand: BotSlot[]): BotSlot | undefined {
 
 export function decideEffect(view: BotView, effectType: EffectType, _level: BotLevel): EffectInput | null {
   if (effectType === 'peek-own') {
-    const slot = firstUnknown(view.myHand) ?? view.myHand[0]
+    const slot = firstUnknown(view.myHand)
     return slot ? { targetPlayerId: view.myId, targetCardIndex: slot.index } : null
   }
 
@@ -27,8 +27,7 @@ export function decideEffect(view: BotView, effectType: EffectType, _level: BotL
       const slot = firstUnknown(opp.hand)
       if (slot) return { targetPlayerId: opp.id, targetCardIndex: slot.index }
     }
-    const opp = view.opponents[0]
-    return opp && opp.hand[0] ? { targetPlayerId: opp.id, targetCardIndex: 0 } : null
+    return null
   }
 
   const mine = highestKnown(view.myHand)

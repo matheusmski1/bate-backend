@@ -26,4 +26,14 @@ describe('decideEffect', () => {
     const v = view([{ cardId: 'c0', index: 0, rank: '2' }], [{ cardId: 'o0', index: 0, rank: 'Q' }])
     expect(decideEffect(v, 'swap', 'medium')).toBeNull()
   })
+
+  it('peek-own retorna null quando todas as proprias cartas sao conhecidas', () => {
+    const v = view([{ cardId: 'c0', index: 0, rank: '5' }], [])
+    expect(decideEffect(v, 'peek-own', 'medium')).toBeNull()
+  })
+
+  it('peek-other retorna null quando todas as cartas do oponente sao conhecidas', () => {
+    const v = view([], [{ cardId: 'o0', index: 0, rank: '5' }])
+    expect(decideEffect(v, 'peek-other', 'medium')).toBeNull()
+  })
 })
