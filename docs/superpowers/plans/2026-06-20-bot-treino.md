@@ -468,7 +468,6 @@ describe('decideTurn', () => {
   })
 
   it('descarta carta de efeito usando o efeito quando ha slot a explorar (medio)', () => {
-    const v = view([{ cardId: 'c0', index: 0, rank: '1' as never }, { cardId: 'c1', index: 1, rank: null }])
     const known = view([{ cardId: 'c0', index: 0, rank: 'A' }, { cardId: 'c1', index: 1, rank: null }])
     const d = decideTurn(known, card('drawn', 'J'), 'medium')
     expect(d).toEqual({ kind: 'discard', useEffect: true })
