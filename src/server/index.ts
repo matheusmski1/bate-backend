@@ -21,6 +21,7 @@ import { listArenasForUser, equipArenaForUser } from './db/arenas'
 import { removePlayerMidGame, discardDrawnCard, skipEffect, autoPlayExpiredTurn } from './game/engine'
 import { markDisconnected, rebindSocket, lastActivityAt } from './game/state'
 import { sweepRooms } from './game/cleanup'
+import { scheduleRoundFinalize } from './handlers/final-snap'
 
 const port = Number(process.env.PORT ?? 3001)
 const corsOrigin = process.env.CORS_ORIGIN ?? '*'
@@ -474,7 +475,7 @@ setInterval(async () => {
   }
 }, CLEANUP_INTERVAL_MS)
 
-const TURN_TIMER_INTERVAL_MS = 2_000
+const TURN_TIMER_INTERVAL_MS = Number(process.env.TURN_TIMER_INTERVAL_MS_OVERRIDE) || 2_000
 
 setInterval(async () => {
   const due = await lobby.getRoomsWithExpiredDeadline(Date.now())
@@ -500,6 +501,7 @@ setInterval(async () => {
       }
       await lobby.setRoom(next)
       broadcastRoom(io, next)
+      if (next.phase === 'final-snap') scheduleRoundFinalize(io, next.roomId, next.roundNumber)
     })
   }
 }, TURN_TIMER_INTERVAL_MS)

@@ -3,6 +3,7 @@ import type { GameState, BotLevel } from '@/types/shared'
 import { lobby } from '@/server/lobby'
 import { snapCard, startTurnTimer } from '../engine'
 import { broadcastRoom } from '@/server/handlers/broadcast'
+import { scheduleRoundFinalize } from '@/server/handlers/final-snap'
 import { log } from '@/server/logger'
 import { planBotAction, runBotTurn } from './index'
 import { seedFromInitialPeek, pruneAbsent, type BotMemory } from './belief'
@@ -15,6 +16,8 @@ function levelOf(level: BotLevel | undefined): BotLevel {
 }
 
 function pickThinkMs(state: GameState): number {
+  const envMs = Number(process.env.BOT_THINK_MS_OVERRIDE)
+  if (Number.isFinite(envMs) && envMs >= 0) return envMs
   const bot = state.players.find(p => p.isBot && p.id === state.players[state.turn]?.id) ?? state.players.find(p => p.isBot)
   const [lo, hi] = LEVEL_CONFIG[levelOf(bot?.botLevel)].thinkMs
   return lo + Math.floor(Math.random() * (hi - lo))
@@ -73,6 +76,7 @@ export function scheduleBotActions(io: SocketServer, state: GameState): void {
         await lobby.setRoom(out.state)
         await lobby.setBotMemory(roomId, action.botId, pruneAbsent(out.memory, out.state))
         broadcastRoom(io, out.state)
+        if (out.state.phase === 'final-snap') scheduleRoundFinalize(io, roomId, out.state.roundNumber)
       })
     })().catch(err => log.error('bot-driver', 'tick failed', { roomId, error: err instanceof Error ? err.message : 'UNKNOWN' }))
   }, pickThinkMs(state))
