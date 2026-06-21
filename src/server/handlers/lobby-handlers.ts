@@ -29,6 +29,7 @@ async function lookupArena(playerId: string): Promise<string> {
 import {
   parseAndAuth,
   RoomCreateSchema,
+  RoomCreatePracticeSchema,
   RoomJoinSchema,
   RoomLeaveSchema,
   RoomEmoteSchema,
@@ -36,9 +37,14 @@ import {
   RoomSpectateSchema,
 } from './schemas'
 import { redactStateForPlayer } from '../game/redact'
+import { startRound } from '../game/state'
+import { scheduleBotActions } from '../game/bot/driver'
+import { seedFromInitialPeek } from '../game/bot/belief'
+import type { Player, BotLevel } from '@/types/shared'
 
 const EMOTE_COOLDOWN_MS = 2500
 const lastEmoteAt = new Map<string, number>()
+const BOT_NAMES = ['Batinho', 'Nozes', 'Castanha']
 
 export async function leaveRoom(io: SocketServer, socket: Socket, roomId: string, playerId: string): Promise<void> {
   const result = await lobby.withRoomLock(roomId, async () => {
@@ -63,14 +69,21 @@ export async function leaveRoom(io: SocketServer, socket: Socket, roomId: string
     const inGame = room.phase !== 'waiting' && room.phase !== 'round-end' && room.phase !== 'match-end'
     if (inGame) {
       const adjusted = removePlayerMidGame(room, playerId)
-      await lobby.setRoom(adjusted)
-      if (adjusted.players.length === 0) {
+      if (adjusted.players.length === 0 || adjusted.players.every(p => p.isBot)) {
         await lobby.removeRoom(roomId)
+        await lobby.clearBotMemory(roomId)
         return null
       }
+      await lobby.setRoom(adjusted)
       return adjusted
     }
-    return (await lobby.removePlayer(roomId, playerId)) ?? null
+    const next = await lobby.removePlayer(roomId, playerId)
+    if (next && next.players.every(p => p.isBot)) {
+      await lobby.removeRoom(roomId)
+      await lobby.clearBotMemory(roomId)
+      return null
+    }
+    return next ?? null
   })
   socket.leave(roomId)
   await lobby.releaseSocket(socket.id)
@@ -109,6 +122,36 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
       const state = await lobby.createRoom({ ...payload, deck, arena })
       ack({ roomId: state.roomId })
       io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
+    } catch (err) {
+      ack({ error: err instanceof Error ? err.message : 'UNKNOWN' })
+    }
+  })
+
+  socket.on('room:create-practice', async (raw: unknown, ack: (res: { roomId?: string; error?: string }) => void) => {
+    const payload = parseAndAuth(RoomCreatePracticeSchema, raw, ack, socket)
+    if (!payload) return
+    try {
+      const [deck, arena] = await Promise.all([lookupDeck(payload.hostId), lookupArena(payload.hostId)])
+      const room = await lobby.createRoom({
+        name: 'Treino', hostId: payload.hostId, hostName: payload.hostName,
+        maxPlayers: (payload.bots + 1) as 2 | 3 | 4, deck, arena, private: true,
+        turnTimeLimitSec: payload.turnTimeLimitSec ?? 60,
+      })
+      const bots: Player[] = Array.from({ length: payload.bots }, (_, i) => ({
+        id: `bot:${room.roomId}:${i}`, socketId: null, name: BOT_NAMES[i] ?? `Bot ${i + 1}`,
+        hand: [], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [],
+        deck: 'default', arena: 'default', isBot: true, botLevel: payload.level as BotLevel,
+      }))
+      const withBots = { ...room, players: [...room.players, ...bots] }
+      const started = startRound(withBots)
+      await lobby.setRoom(started)
+      for (const bot of bots) {
+        await lobby.setBotMemory(started.roomId, bot.id, seedFromInitialPeek(started, bot.id, payload.level as BotLevel))
+      }
+      ack({ roomId: started.roomId })
+      broadcastRoom(io, started)
+      io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
+      scheduleBotActions(io, started)
     } catch (err) {
       ack({ error: err instanceof Error ? err.message : 'UNKNOWN' })
     }

@@ -16,6 +16,14 @@ export const RoomCreateSchema = z.object({
   private: z.boolean().optional(),
 })
 
+export const RoomCreatePracticeSchema = z.object({
+  hostId: playerId,
+  hostName: playerName,
+  bots: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  level: z.enum(['easy', 'medium', 'hard']),
+  turnTimeLimitSec: z.number().int().min(0).max(600).nullable().optional(),
+})
+
 export const RoomJoinSchema = z.object({
   roomId,
   playerId,
