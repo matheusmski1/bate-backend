@@ -3,6 +3,7 @@ import type { GameState } from '@/types/shared'
 import { redactStateForPlayer } from '../game/redact'
 import { gameEvents } from '../events'
 import { log } from '../logger'
+import { scheduleBotActions } from '../game/bot/driver'
 
 export function broadcastRoom(io: SocketServer, state: GameState) {
   let emitted = 0
@@ -26,4 +27,5 @@ export function broadcastRoom(io: SocketServer, state: GameState) {
     roundNumber: state.roundNumber,
     roundStartedAt: state.roundStartedAt,
   })
+  if (state.players.some(p => p.isBot)) scheduleBotActions(io, state)
 }

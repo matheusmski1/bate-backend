@@ -1,6 +1,7 @@
 import { getStorage } from './storage'
 import type { CreateRoomInput, JoinInput, SocketBinding, DrawnCacheEntry } from './storage'
 import type { GameState, RoomSummary } from '@/types/shared'
+import type { BotMemory } from './game/bot/belief'
 
 export const lobby = {
   createRoom(input: CreateRoomInput): Promise<GameState> {
@@ -65,6 +66,18 @@ export const lobby = {
 
   clearDrawnCard(playerId: string): Promise<void> {
     return getStorage().clearDrawnCard(playerId)
+  },
+
+  setBotMemory(roomId: string, botId: string, mem: BotMemory): Promise<void> {
+    return getStorage().setBotMemory(roomId, botId, mem)
+  },
+
+  getBotMemory(roomId: string, botId: string): Promise<BotMemory | undefined> {
+    return getStorage().getBotMemory(roomId, botId)
+  },
+
+  clearBotMemory(roomId: string): Promise<void> {
+    return getStorage().clearBotMemory(roomId)
   },
 
   addPeekConfirmation(roomId: string, playerId: string): Promise<number> {

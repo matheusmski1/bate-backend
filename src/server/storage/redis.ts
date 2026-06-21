@@ -4,6 +4,7 @@ import type { GameState, Player, RoomSummary } from '@/types/shared'
 import { createEmptyRoom, trimLog } from '../game/state'
 import { log } from '../logger'
 import type { Storage, CreateRoomInput, JoinInput, SocketBinding, DrawnCacheEntry } from './types'
+import type { BotMemory } from '../game/bot/belief'
 import { generateUniqueRoomId } from './room-id'
 
 function summarize(state: GameState): RoomSummary {
@@ -25,6 +26,7 @@ const SOCKET_INDEX_KEY = 'bate:socket-index'
 const PLAYER_ROOM_KEY = 'bate:player-room'
 const DRAWN_KEY = 'bate:drawn'
 const PEEK_KEY = (roomId: string) => `bate:peek:${roomId}`
+const BOT_MEMORY_KEY = (roomId: string) => `bate:botmem:${roomId}`
 const LOCK_KEY = (roomId: string) => `bate:lock:${roomId}`
 
 const ROOM_TTL_MS = 30 * 60 * 1000
@@ -176,6 +178,7 @@ export class RedisStorage implements Storage {
       multi.hDel(SUMMARIES_KEY, roomId)
       multi.zRem(DEADLINES_KEY, roomId)
       multi.del(PEEK_KEY(roomId))
+      multi.del(BOT_MEMORY_KEY(roomId))
       await multi.exec()
     })
   }
@@ -254,6 +257,26 @@ export class RedisStorage implements Storage {
     await this.withClient(c => c.hDel(DRAWN_KEY, playerId))
   }
 
+  async setBotMemory(roomId: string, botId: string, mem: BotMemory): Promise<void> {
+    await this.withClient(async c => {
+      const multi = c.multi()
+      multi.hSet(BOT_MEMORY_KEY(roomId), botId, JSON.stringify(mem))
+      multi.expire(BOT_MEMORY_KEY(roomId), Math.ceil(ROOM_TTL_MS / 1000))
+      await multi.exec()
+    })
+  }
+
+  async getBotMemory(roomId: string, botId: string): Promise<BotMemory | undefined> {
+    return this.withClient(async c => {
+      const raw = await c.hGet(BOT_MEMORY_KEY(roomId), botId)
+      return raw ? (JSON.parse(raw) as BotMemory) : undefined
+    })
+  }
+
+  async clearBotMemory(roomId: string): Promise<void> {
+    await this.withClient(c => c.del(BOT_MEMORY_KEY(roomId)))
+  }
+
   async addPeekConfirmation(roomId: string, playerId: string): Promise<number> {
     return this.withClient(async c => {
       const multi = c.multi()
@@ -293,7 +316,7 @@ export class RedisStorage implements Storage {
   async clear(): Promise<void> {
     await this.withClient(async c => {
       await c.del([SUMMARIES_KEY, SOCKET_INDEX_KEY, PLAYER_ROOM_KEY, DRAWN_KEY, DEADLINES_KEY])
-      for (const pattern of ['bate:room:*', 'bate:peek:*', 'bate:lock:*']) {
+      for (const pattern of ['bate:room:*', 'bate:peek:*', 'bate:lock:*', 'bate:botmem:*']) {
         let cursor = '0'
         do {
           const res = await c.scan(cursor, { MATCH: pattern, COUNT: 200 })
