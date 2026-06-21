@@ -228,7 +228,7 @@ cd ../bate-frontend && git add src/types/shared.ts && git commit -m "mirror BotL
 
 **Interfaces:**
 - Consumes: `LEVEL_CONFIG`, `UNKNOWN_CARD_EV` (Task 1).
-- Produces: `BotMemory`, `emptyMemory`, `seedFromInitialPeek`, `learnCard`, `recordDiscard`, `pruneAbsent`, `knownRank`, `BotSlot`, `BotView`, `buildBotView`, and the test fixture `practiceRound`.
+- Produces: `BotMemory`, `emptyMemory`, `seedFromInitialPeek`, `learnCard`, `pruneAbsent`, `knownRank`, `BotSlot`, `BotView`, `buildBotView`, and the test fixture `practiceRound`.
 
 Knowledge is keyed by **cardId** (not slot) so it survives Q-swaps and snaps automatically. `revealedToSelf` ranks are read from the true hand at seed time (legal: the human sees those 2 too). `knownRank` returns `null` for cards the bot forgot (easy decay) or never learned — which is how anti-cheat is enforced: `buildBotView` never exposes a rank the bot doesn't legally know.
 
