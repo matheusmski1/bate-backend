@@ -25,6 +25,7 @@ describe('room:create-practice', () => {
     expect(room!.players.filter(p => p.isBot)).toHaveLength(2)
     expect(room!.private).toBe(true)
     expect(['initial-peek', 'playing']).toContain(room!.phase)
+    expect(room!.players.find(p => !p.isBot)?.socketId).toBe('s1')
   })
 
   it('remove a sala e a memoria do bot quando o humano sai', async () => {

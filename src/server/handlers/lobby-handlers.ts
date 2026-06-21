@@ -142,12 +142,16 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
         hand: [], score: 0, connected: true, disconnectedAt: null, revealedToSelf: [],
         deck: 'default', arena: 'default', isBot: true, botLevel: payload.level as BotLevel,
       }))
-      const withBots = { ...room, players: [...room.players, ...bots] }
+      const seatedHost = { ...room, players: room.players.map(p => (p.id === payload.hostId ? { ...p, socketId: socket.id } : p)) }
+      const withBots = { ...seatedHost, players: [...seatedHost.players, ...bots] }
       const started = startRound(withBots)
       await lobby.setRoom(started)
       for (const bot of bots) {
         await lobby.setBotMemory(started.roomId, bot.id, seedFromInitialPeek(started, bot.id, payload.level as BotLevel))
       }
+      socket.join(started.roomId)
+      await lobby.bindSocket(socket.id, started.roomId, payload.hostId)
+      await lobby.setPlayerRoom(payload.hostId, started.roomId)
       ack({ roomId: started.roomId })
       broadcastRoom(io, started)
       io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
