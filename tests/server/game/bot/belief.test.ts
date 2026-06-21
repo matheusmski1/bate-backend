@@ -27,12 +27,24 @@ describe('knownRank + decay', () => {
   it('facil esquece carta aprendida ha mais de 2 turnos', () => {
     const mem = learnCard(emptyMemory(), 'x', 'Q', 1)
     expect(knownRank(mem, 'x', 2, 'easy')).toBe('Q')
+    expect(knownRank(mem, 'x', 3, 'easy')).toBe('Q')
     expect(knownRank(mem, 'x', 4, 'easy')).toBeNull()
   })
 
   it('medio nunca esquece', () => {
     const mem = learnCard(emptyMemory(), 'x', 'Q', 1)
     expect(knownRank(mem, 'x', 50, 'medium')).toBe('Q')
+  })
+
+  it('dificil nunca esquece', () => {
+    const mem = learnCard(emptyMemory(), 'x', 'Q', 1)
+    expect(knownRank(mem, 'x', 50, 'hard')).toBe('Q')
+  })
+
+  it('learnCard atualiza o rank de uma carta ja conhecida', () => {
+    let mem = learnCard(emptyMemory(), 'x', 'Q', 1)
+    mem = learnCard(mem, 'x', 'K', 3)
+    expect(knownRank(mem, 'x', 3, 'medium')).toBe('K')
   })
 })
 
