@@ -21,7 +21,7 @@
     "loadtest:idle": "tsx scripts/loadtest/idle-scenario.ts"
   },
   "engines": {
-    "node": ">=22"
+    "node": "22.x"
   },
   "dependencies": {
     "@socket.io/redis-adapter": "^8.3.0",
