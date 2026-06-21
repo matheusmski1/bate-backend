@@ -414,18 +414,25 @@ io.on('connection', socket => {
         log.warn('reconnect-grace', 'expired', { player: entry.playerId, room: entry.roomId, phase: r.phase })
         if (r.phase === 'waiting' || r.phase === 'round-end' || r.phase === 'match-end') {
           const next = await lobby.removePlayer(entry.roomId, entry.playerId)
-          if (next) broadcastRoom(io, next)
+          if (next && next.players.every(x => x.isBot)) {
+            await lobby.removeRoom(entry.roomId)
+            await lobby.clearBotMemory(entry.roomId)
+          } else if (next) broadcastRoom(io, next)
           else log.warn('reconnect-grace', 'removePlayer killed room', { room: entry.roomId })
         } else {
           const adjusted = removePlayerMidGame(r, entry.playerId)
-          await lobby.setRoom(adjusted)
-          if (adjusted.players.length === 0) await lobby.removeRoom(entry.roomId)
-          else if (adjusted.players.length !== r.players.length) {
-            const stillThere = adjusted.players.length
-            log.info('reconnect-grace', 'player removed mid-game', { player: entry.playerId, remaining: stillThere, phase: adjusted.phase })
-            broadcastRoom(io, adjusted)
+          if (adjusted.players.length === 0 || adjusted.players.every(x => x.isBot)) {
+            await lobby.removeRoom(entry.roomId)
+            await lobby.clearBotMemory(entry.roomId)
           } else {
-            broadcastRoom(io, r)
+            await lobby.setRoom(adjusted)
+            if (adjusted.players.length !== r.players.length) {
+              const stillThere = adjusted.players.length
+              log.info('reconnect-grace', 'player removed mid-game', { player: entry.playerId, remaining: stillThere, phase: adjusted.phase })
+              broadcastRoom(io, adjusted)
+            } else {
+              broadcastRoom(io, r)
+            }
           }
         }
       })

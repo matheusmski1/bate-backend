@@ -4,6 +4,8 @@ import { audit } from '../audit'
 
 const roomId = z.string().regex(/^[A-Z0-9]{4,12}$/, 'invalid roomId')
 const playerId = z.string().uuid()
+const botId = z.string().regex(/^bot:[A-Z0-9]{4,12}:\d+$/, 'invalid botId')
+const targetPlayerId = z.union([playerId, botId])
 const playerName = z.string().min(1).max(20)
 const handIndex = z.number().int().min(0).max(20)
 
@@ -94,7 +96,7 @@ export const GameSkipEffectSchema = z.object({
 export const GameEffectTargetSchema = z.object({
   roomId,
   playerId,
-  targetPlayerId: playerId,
+  targetPlayerId,
   targetCardIndex: handIndex,
   myCardIndex: handIndex.optional(),
 })
