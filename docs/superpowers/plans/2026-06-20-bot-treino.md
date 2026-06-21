@@ -98,7 +98,7 @@ export function planBotAction(
 ): PlannedAction
 
 // src/server/game/bot/driver.ts
-export function scheduleBotActions(io: SocketServer, roomId: string): void
+export function scheduleBotActions(io: SocketServer, state: GameState): void
 
 // src/server/storage/types.ts (Storage interface)
 setBotMemory(roomId: string, botId: string, mem: BotMemory): Promise<void>
@@ -1337,7 +1337,7 @@ socket.on('room:create-practice', async (raw: unknown, ack: (res: { roomId?: str
     ack({ roomId: started.roomId })
     broadcastRoom(io, started)
     io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
-    scheduleBotActions(io, started.roomId)
+    scheduleBotActions(io, started)
   } catch (err) {
     ack({ error: err instanceof Error ? err.message : 'UNKNOWN' })
   }
@@ -1347,9 +1347,9 @@ socket.on('room:create-practice', async (raw: unknown, ack: (res: { roomId?: str
 
 - [ ] **Step 5: Wire the broadcast trigger** — at the very end of `broadcastRoom` in `broadcast.ts`, after `gameEvents.emitBroadcast(...)`:
 ```ts
-  if (state.players.some(p => p.isBot)) scheduleBotActions(io, state.roomId)
+  if (state.players.some(p => p.isBot)) scheduleBotActions(io, state)
 ```
-Import `scheduleBotActions` from `../game/bot/driver`. (This is `setTimeout`-only, so it is safe to call from inside a `withRoomLock` block.)
+Import `scheduleBotActions` from `../game/bot/driver`. It registers a `setTimeout` synchronously (acquiring the lock only inside the timer callback), so it is safe to call from inside a `withRoomLock` block. It takes the full `GameState` (not just the id) so the per-level "think" delay is computed synchronously without an extra fetch.
 
 - [ ] **Step 6: Wire round-lifecycle cleanup** — in `game-handlers.ts`, in the `game:next-round` handler, after `finishRound(room)` and before/around the re-`startRound`, add `await lobby.clearBotMemory(room.roomId)` so each new round re-seeds memory (the practice handler / next broadcast re-seeds via the driver's `?? seedFromInitialPeek`). Mirror the existing `clearPeekConfirmations` call site.
 
