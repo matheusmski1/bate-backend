@@ -16,7 +16,7 @@ describe('decideTurn', () => {
   it('descarta a carta comprada quando ela e pior que tudo que tenho', () => {
     const v = view([{ cardId: 'c0', index: 0, rank: '2' }, { cardId: 'c1', index: 1, rank: '3' }])
     const d = decideTurn(v, card('drawn', 'J'), 'medium')
-    expect(d.kind).toBe('discard')
+    expect(d).toEqual({ kind: 'discard', useEffect: false })
   })
 
   it('nunca descarta K ou JOKER comprado — guarda no lugar de uma desconhecida', () => {
@@ -39,5 +39,10 @@ describe('decideTurn', () => {
     const known = view([{ cardId: 'c0', index: 0, rank: 'A' }, { cardId: 'c1', index: 1, rank: null }])
     const d = decideTurn(known, card('drawn', 'J'), 'medium')
     expect(d).toEqual({ kind: 'discard', useEffect: true })
+  })
+
+  it('guarda K comprado trocando pela melhor conhecida quando nao ha slot desconhecido', () => {
+    const v = view([{ cardId: 'c0', index: 0, rank: 'K' }, { cardId: 'c1', index: 1, rank: 'JOKER' }])
+    expect(decideTurn(v, card('drawn', 'K'), 'medium')).toEqual({ kind: 'swap', handIndex: 0 })
   })
 })
