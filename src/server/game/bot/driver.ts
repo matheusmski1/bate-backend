@@ -67,6 +67,7 @@ export function scheduleBotActions(io: SocketServer, state: GameState): void {
           const mem = memories.get(action.botId)!
           await lobby.setBotMemory(roomId, action.botId, { ...mem, lastSnapDiscardId: top?.id ?? null })
           broadcastRoom(io, next)
+          if (next.phase === 'final-snap') scheduleRoundFinalize(io, roomId, next.roundNumber)
           return
         }
 

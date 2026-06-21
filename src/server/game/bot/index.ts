@@ -17,7 +17,7 @@ function levelOf(player: Player | undefined): BotLevel {
 }
 
 export function runBotTurn(
-  state: GameState, botId: string, mem: BotMemory, level: BotLevel, rng: () => number = Math.random,
+  state: GameState, botId: string, mem: BotMemory, level: BotLevel,
 ): { state: GameState; memory: BotMemory } {
   let memory = mem
 

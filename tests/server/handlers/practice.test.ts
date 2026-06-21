@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { setStorage } from '@/server/storage'
 import { MemoryStorage } from '@/server/storage/memory'
 import { lobby } from '@/server/lobby'

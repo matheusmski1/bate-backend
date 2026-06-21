@@ -15,7 +15,7 @@ describe('bot-vs-bot', () => {
     while (state.phase === 'playing' || state.phase === 'bate-called') {
       if (i++ > CAP) throw new Error('bot loop nao convergiu')
       const botId = state.players[state.turn]!.id
-      const out = runBotTurn(state, botId, mems.get(botId)!, 'hard', () => 0.99)
+      const out = runBotTurn(state, botId, mems.get(botId)!, 'hard')
       state = out.state
       mems.set(botId, pruneAbsent(out.memory, state))
     }

@@ -38,7 +38,6 @@ import {
 } from './schemas'
 import { redactStateForPlayer } from '../game/redact'
 import { startRound } from '../game/state'
-import { scheduleBotActions } from '../game/bot/driver'
 import { seedFromInitialPeek } from '../game/bot/belief'
 import type { Player, BotLevel } from '@/types/shared'
 
@@ -155,7 +154,6 @@ export function registerLobbyHandlers(io: SocketServer, socket: Socket) {
       ack({ roomId: started.roomId })
       broadcastRoom(io, started)
       io.to('lobby').emit('lobby:update', { rooms: await lobby.listRooms() })
-      scheduleBotActions(io, started)
     } catch (err) {
       ack({ error: err instanceof Error ? err.message : 'UNKNOWN' })
     }

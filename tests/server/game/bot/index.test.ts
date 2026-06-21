@@ -11,7 +11,7 @@ describe('runBotTurn', () => {
     state = { ...state, turn: state.players.findIndex(p => p.id === BOT) }
     const mem = seedFromInitialPeek(state, BOT, 'hard')
     const before = state.roundTurnCount
-    const out = runBotTurn(state, BOT, mem, 'hard', () => 0)
+    const out = runBotTurn(state, BOT, mem, 'hard')
     expect(out.state.phase === 'effect-pending').toBe(false)
     expect(out.state.roundTurnCount).toBeGreaterThanOrEqual(before)
   })
