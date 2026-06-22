@@ -4,6 +4,8 @@ import { audit } from '../audit'
 
 const roomId = z.string().regex(/^[A-Z0-9]{4,12}$/, 'invalid roomId')
 const playerId = z.string().uuid()
+const botId = z.string().regex(/^bot:[A-Z0-9]{4,12}:\d+$/, 'invalid botId')
+const targetPlayerId = z.union([playerId, botId])
 const playerName = z.string().min(1).max(20)
 const handIndex = z.number().int().min(0).max(20)
 
@@ -14,6 +16,14 @@ export const RoomCreateSchema = z.object({
   maxPlayers: z.union([z.literal(2), z.literal(3), z.literal(4)]),
   turnTimeLimitSec: z.number().int().min(0).max(600).nullable().optional(),
   private: z.boolean().optional(),
+})
+
+export const RoomCreatePracticeSchema = z.object({
+  hostId: playerId,
+  hostName: playerName,
+  bots: z.union([z.literal(1), z.literal(2), z.literal(3)]),
+  level: z.enum(['easy', 'medium', 'hard']),
+  turnTimeLimitSec: z.number().int().min(0).max(600).nullable().optional(),
 })
 
 export const RoomJoinSchema = z.object({
@@ -86,7 +96,7 @@ export const GameSkipEffectSchema = z.object({
 export const GameEffectTargetSchema = z.object({
   roomId,
   playerId,
-  targetPlayerId: playerId,
+  targetPlayerId,
   targetCardIndex: handIndex,
   myCardIndex: handIndex.optional(),
 })

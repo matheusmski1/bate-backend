@@ -92,7 +92,7 @@ export function removePlayerMidGame(state: GameState, playerId: string): GameSta
   }
   let hostId = state.hostId
   if (hostId === playerId) {
-    const nextHost = players.find(p => p.connected) ?? players[0]
+    const nextHost = players.find(p => p.connected && !p.isBot) ?? players.find(p => !p.isBot) ?? players[0]
     if (nextHost) hostId = nextHost.id
   }
   return {

@@ -227,6 +227,7 @@ export function registerGameHandlers(io: SocketServer, socket: Socket) {
         if (!room) throw new Error('ROOM_NOT_FOUND')
         if (room.hostId !== payload.playerId) throw new Error('NOT_HOST')
         const ended = finishRound(room)
+        await lobby.clearBotMemory(room.roomId)
         if (ended.phase === 'match-end') {
           await lobby.setRoom(ended)
           io.to(payload.roomId).emit('game:match-end', { finalScores: ended.players.map(p => ({ id: p.id, name: p.name, score: p.score })) })

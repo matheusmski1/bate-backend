@@ -23,6 +23,8 @@ export type GamePhase =
 
 export type EffectType = 'peek-own' | 'peek-other' | 'swap'
 
+export type BotLevel = 'easy' | 'medium' | 'hard'
+
 export type PendingEffect = {
   type: EffectType
   playerId: string
@@ -45,6 +47,8 @@ export type Player = {
   revealedToSelf: string[]
   deck: string
   arena: string
+  isBot?: boolean
+  botLevel?: BotLevel
 }
 
 export type GameActionType =

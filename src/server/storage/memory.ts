@@ -5,6 +5,7 @@ import { generateUniqueRoomId } from './room-id'
 const STORED_LOG_LIMIT = 60
 import { log } from '../logger'
 import type { Storage, CreateRoomInput, JoinInput, SocketBinding, DrawnCacheEntry } from './types'
+import type { BotMemory } from '../game/bot/belief'
 
 function summarize(state: GameState): RoomSummary {
   return {
@@ -25,6 +26,7 @@ export class MemoryStorage implements Storage {
   private socketIndex = new Map<string, SocketBinding>()
   private playerRoom = new Map<string, string>()
   private drawnCache = new Map<string, DrawnCacheEntry>()
+  private botMemory = new Map<string, Map<string, BotMemory>>()
   private peekConfirmed = new Map<string, Set<string>>()
   private locks = new Map<string, PendingLock>()
 
@@ -84,7 +86,7 @@ export class MemoryStorage implements Storage {
     }
     let hostId = state.hostId
     if (hostId === playerId) {
-      const nextHost = players.find(p => p.connected) ?? players[0]
+      const nextHost = players.find(p => p.connected && !p.isBot) ?? players.find(p => !p.isBot) ?? players[0]
       if (nextHost) hostId = nextHost.id
     }
     const next = { ...state, players, hostId }
@@ -161,6 +163,20 @@ export class MemoryStorage implements Storage {
     this.drawnCache.delete(playerId)
   }
 
+  async setBotMemory(roomId: string, botId: string, mem: BotMemory): Promise<void> {
+    let inner = this.botMemory.get(roomId)
+    if (!inner) { inner = new Map(); this.botMemory.set(roomId, inner) }
+    inner.set(botId, mem)
+  }
+
+  async getBotMemory(roomId: string, botId: string): Promise<BotMemory | undefined> {
+    return this.botMemory.get(roomId)?.get(botId)
+  }
+
+  async clearBotMemory(roomId: string): Promise<void> {
+    this.botMemory.delete(roomId)
+  }
+
   async addPeekConfirmation(roomId: string, playerId: string): Promise<number> {
     let set = this.peekConfirmed.get(roomId)
     if (!set) {
@@ -194,6 +210,7 @@ export class MemoryStorage implements Storage {
     this.socketIndex.clear()
     this.playerRoom.clear()
     this.drawnCache.clear()
+    this.botMemory.clear()
     this.peekConfirmed.clear()
     this.locks.clear()
   }

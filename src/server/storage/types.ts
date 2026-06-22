@@ -1,4 +1,5 @@
 import type { Card, GameState, RoomSummary } from '@/types/shared'
+import type { BotMemory } from '../game/bot/belief'
 
 export type SocketBinding = { roomId: string; playerId: string }
 
@@ -37,6 +38,10 @@ export interface Storage {
   setDrawnCard(playerId: string, entry: DrawnCacheEntry): Promise<void>
   getDrawnCard(playerId: string): Promise<DrawnCacheEntry | undefined>
   clearDrawnCard(playerId: string): Promise<void>
+
+  setBotMemory(roomId: string, botId: string, mem: BotMemory): Promise<void>
+  getBotMemory(roomId: string, botId: string): Promise<BotMemory | undefined>
+  clearBotMemory(roomId: string): Promise<void>
 
   addPeekConfirmation(roomId: string, playerId: string): Promise<number>
   clearPeekConfirmations(roomId: string): Promise<void>

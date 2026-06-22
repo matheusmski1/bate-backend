@@ -21,6 +21,7 @@ import { listArenasForUser, equipArenaForUser } from './db/arenas'
 import { removePlayerMidGame, discardDrawnCard, skipEffect, autoPlayExpiredTurn } from './game/engine'
 import { markDisconnected, rebindSocket, lastActivityAt } from './game/state'
 import { sweepRooms } from './game/cleanup'
+import { scheduleRoundFinalize } from './handlers/final-snap'
 
 const port = Number(process.env.PORT ?? 3001)
 const corsOrigin = process.env.CORS_ORIGIN ?? '*'
@@ -413,18 +414,25 @@ io.on('connection', socket => {
         log.warn('reconnect-grace', 'expired', { player: entry.playerId, room: entry.roomId, phase: r.phase })
         if (r.phase === 'waiting' || r.phase === 'round-end' || r.phase === 'match-end') {
           const next = await lobby.removePlayer(entry.roomId, entry.playerId)
-          if (next) broadcastRoom(io, next)
+          if (next && next.players.every(x => x.isBot)) {
+            await lobby.removeRoom(entry.roomId)
+            await lobby.clearBotMemory(entry.roomId)
+          } else if (next) broadcastRoom(io, next)
           else log.warn('reconnect-grace', 'removePlayer killed room', { room: entry.roomId })
         } else {
           const adjusted = removePlayerMidGame(r, entry.playerId)
-          await lobby.setRoom(adjusted)
-          if (adjusted.players.length === 0) await lobby.removeRoom(entry.roomId)
-          else if (adjusted.players.length !== r.players.length) {
-            const stillThere = adjusted.players.length
-            log.info('reconnect-grace', 'player removed mid-game', { player: entry.playerId, remaining: stillThere, phase: adjusted.phase })
-            broadcastRoom(io, adjusted)
+          if (adjusted.players.length === 0 || adjusted.players.every(x => x.isBot)) {
+            await lobby.removeRoom(entry.roomId)
+            await lobby.clearBotMemory(entry.roomId)
           } else {
-            broadcastRoom(io, r)
+            await lobby.setRoom(adjusted)
+            if (adjusted.players.length !== r.players.length) {
+              const stillThere = adjusted.players.length
+              log.info('reconnect-grace', 'player removed mid-game', { player: entry.playerId, remaining: stillThere, phase: adjusted.phase })
+              broadcastRoom(io, adjusted)
+            } else {
+              broadcastRoom(io, r)
+            }
           }
         }
       })
@@ -474,7 +482,7 @@ setInterval(async () => {
   }
 }, CLEANUP_INTERVAL_MS)
 
-const TURN_TIMER_INTERVAL_MS = 2_000
+const TURN_TIMER_INTERVAL_MS = Number(process.env.TURN_TIMER_INTERVAL_MS_OVERRIDE) || 2_000
 
 setInterval(async () => {
   const due = await lobby.getRoomsWithExpiredDeadline(Date.now())
@@ -500,6 +508,7 @@ setInterval(async () => {
       }
       await lobby.setRoom(next)
       broadcastRoom(io, next)
+      if (next.phase === 'final-snap') scheduleRoundFinalize(io, next.roomId, next.roundNumber)
     })
   }
 }, TURN_TIMER_INTERVAL_MS)
